@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -12,52 +13,49 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Bed, Users } from 'lucide-react';
 import { SuiteGallery } from './SuiteGallery';
 import { SuiteDetails } from './SuiteDetails';
+import { type Suite } from '../lib/types';
 
 interface SuiteCardProps {
-  name: string;
-  description: string;
-  image: string;
-  price: number;
-  capacity: number;
-  gallery: string[];
-  onBookNow: (suiteName: string) => void;
+  suite: Suite;
 }
 
-export default function SuiteCard({
-  name,
-  description,
-  image,
-  price,
-  capacity,
-  gallery,
-  onBookNow,
-}: SuiteCardProps) {
+export default function SuiteCard({ suite }: SuiteCardProps) {
   const [showDetails, setShowDetails] = useState(false);
+  const navigate = useNavigate();
+
+  const handleBookNow = () => {
+    // Convert suite name to URL-friendly format
+    const suiteId = suite.name.toLowerCase().replace(/\s+/g, '-');
+    // Pass the complete suite data through navigation state
+    navigate(`/booking/${suiteId}`, { 
+      state: { suite } 
+    });
+  };
 
   return (
     <>
       <Card className="overflow-hidden hover:shadow-xl transition-shadow duration-300 group pt-0">
         <div className="relative h-64 overflow-hidden">
           <img
-            src={image}
-            alt={name}
+            src={suite.image}
+            alt={suite.name}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
           />
           <div className="absolute top-4 right-4 bg-primary text-white px-4 py-2 rounded-full font-semibold">
-            GHS {price}
+            GHS {suite.price}
           </div>
         </div>
         <CardHeader>
-          <CardTitle className="text-xl">{name}</CardTitle>
+          <CardTitle className="text-xl">{suite.name}</CardTitle>
           <CardDescription className="line-clamp-2">
-            {description}
+            {suite.description}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center space-x-4 text-sm text-gray-600">
             <div className="flex items-center space-x-1">
               <Users className="w-4 h-4" />
-              <span>{capacity} guests</span>
+              <span>{suite.capacity} guests</span>
             </div>
             <div className="flex items-center space-x-1">
               <Bed className="w-4 h-4" />
@@ -75,7 +73,7 @@ export default function SuiteCard({
           </Button>
           <Button
             className="flex-1 bg-primary hover:bg-primary/90 text-white"
-            onClick={() => onBookNow(name)}
+            onClick={handleBookNow}
           >
             Book Now
           </Button>
@@ -86,31 +84,31 @@ export default function SuiteCard({
         <DialogContent className="sm:max-w-4xl h-[90vh] overflow-y-auto pb-0">
           <DialogHeader>
             <DialogTitle className="text-left text-2xl font-bold text-primary">
-              {name}
+              {suite.name}
             </DialogTitle>
           </DialogHeader>
 
-          <SuiteGallery images={gallery} suiteName={name} />
+          <SuiteGallery images={suite.gallery} suiteName={suite.name} />
 
           <div className="space-y-6 px-2 pb-6">
             <div className="flex items-center justify-between py-4 border-y">
               <div>
                 <p className="text-sm text-gray-600">Price per night</p>
                 <p className="text-2xl md:text-3xl font-extrabold text-primary">
-                  GHS {price}
+                  GHS {suite.price}
                 </p>
               </div>
               <Button
                 className="bg-primary hover:bg-primary/90 text-white px-8"
                 onClick={() => {
                   setShowDetails(false);
-                  onBookNow(name);
+                  handleBookNow();
                 }}
               >
                 Book Now
               </Button>
             </div>
-            <SuiteDetails description={description} capacity={capacity} />
+            <SuiteDetails description={suite.description} capacity={suite.capacity} />
           </div>
         </DialogContent>
       </Dialog>

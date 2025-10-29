@@ -3,96 +3,7 @@ import { useState, useEffect } from 'react';
 import SuiteCard from '../components/SuiteCard';
 import { Button } from '../components/ui/button';
 import { useSearchParams } from 'react-router-dom';
-
-const allSuites = [
-  {
-    id: 1,
-    name: 'Royal Paradise Suite',
-    description:
-      'Our flagship suite featuring panoramic views, a private balcony, and opulent furnishings. Perfect for those seeking the ultimate luxury experience.',
-    image:
-      'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=800',
-    price: 450,
-    capacity: 4,
-    gallery: [
-      'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/262048/pexels-photo-262048.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/1743231/pexels-photo-1743231.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/1743229/pexels-photo-1743229.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/271618/pexels-photo-271618.jpeg?auto=compress&cs=tinysrgb&w=800',
-    ],
-  },
-  {
-    id: 2,
-    name: 'Garden View Suite',
-    description:
-      'Wake up to stunning garden views and enjoy the serenity of nature from your private terrace. Ideal for nature lovers and peaceful retreats.',
-    image:
-      'https://images.pexels.com/photos/262048/pexels-photo-262048.jpeg?auto=compress&cs=tinysrgb&w=800',
-    price: 320,
-    capacity: 3,
-    gallery: [
-      'https://images.pexels.com/photos/262048/pexels-photo-262048.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/1743231/pexels-photo-1743231.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/271618/pexels-photo-271618.jpeg?auto=compress&cs=tinysrgb&w=800',
-    ],
-  },
-  {
-    id: 3,
-    name: 'Executive Suite',
-    description:
-      'Sophisticated and spacious, perfect for business travelers or extended stays. Features a dedicated workspace and modern amenities.',
-    image:
-      'https://images.pexels.com/photos/1743231/pexels-photo-1743231.jpeg?auto=compress&cs=tinysrgb&w=800',
-    price: 380,
-    capacity: 2,
-    gallery: [
-      'https://images.pexels.com/photos/1743231/pexels-photo-1743231.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/262048/pexels-photo-262048.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/271618/pexels-photo-271618.jpeg?auto=compress&cs=tinysrgb&w=800',
-    ],
-  },
-  {
-    id: 4,
-    name: 'Presidential Suite',
-    description:
-      'The epitome of luxury with separate living and dining areas, a premium entertainment system, and exclusive concierge service.',
-    image:
-      'https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=800',
-    price: 550,
-    capacity: 4,
-    gallery: [
-      'https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/262048/pexels-photo-262048.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/1743231/pexels-photo-1743231.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/1743229/pexels-photo-1743229.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/271618/pexels-photo-271618.jpeg?auto=compress&cs=tinysrgb&w=800',
-    ],
-  },
-  {
-    id: 5,
-    name: 'Deluxe Suite',
-    description:
-      'Elegantly designed with contemporary décor and thoughtful amenities. An excellent choice for couples and small families.',
-    image:
-      'https://images.pexels.com/photos/1743229/pexels-photo-1743229.jpeg?auto=compress&cs=tinysrgb&w=800',
-    price: 290,
-    capacity: 2,
-    gallery: [
-      'https://images.pexels.com/photos/1743229/pexels-photo-1743229.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/262048/pexels-photo-262048.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/1743231/pexels-photo-1743231.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/271618/pexels-photo-271618.jpeg?auto=compress&cs=tinysrgb&w=800',
-    ],
-  },
-];
+import { allSuites } from '../lib/constants';
 
 export default function Suites() {
   const [filteredSuites, setFilteredSuites] = useState(allSuites);
@@ -132,11 +43,6 @@ export default function Suites() {
     }
   };
 
-  const handleBookNow = () => {
-    const event = new CustomEvent('openBookingModal');
-    window.dispatchEvent(event);
-  };
-
   return (
     <div className="min-h-screen pt-20">
       <section className="relative py-20 bg-linear-to-br from-primary/10 to-stone-50">
@@ -173,13 +79,7 @@ export default function Suites() {
             {filteredSuites.map((suite) => (
               <SuiteCard
                 key={suite.id}
-                name={suite.name}
-                description={suite.description}
-                image={suite.image}
-                price={suite.price}
-                capacity={suite.capacity}
-                gallery={suite.gallery}
-                onBookNow={handleBookNow}
+                suite={suite}
               />
             ))}
           </div>

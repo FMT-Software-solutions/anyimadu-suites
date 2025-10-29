@@ -5,12 +5,14 @@ import { Textarea } from '../components/ui/textarea';
 import { Label } from '../components/ui/label';
 import { Mail, Phone, MapPin, Clock } from 'lucide-react';
 import { useState } from 'react';
+import { CountrySelector } from '../components/CountrySelector';
 
 export default function Contact() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
+    country: '',
     message: '',
   });
   const [submitted, setSubmitted] = useState(false);
@@ -20,7 +22,7 @@ export default function Contact() {
     setSubmitted(true);
     setTimeout(() => {
       setSubmitted(false);
-      setFormData({ name: '', email: '', phone: '', message: '' });
+      setFormData({ name: '', email: '', phone: '', country: '', message: '' });
     }, 3000);
   };
 
@@ -122,6 +124,16 @@ export default function Contact() {
                             setFormData({ ...formData, phone: e.target.value })
                           }
                           placeholder="+233 XX XXX XXXX"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="country">Country</Label>
+                        <CountrySelector
+                          value={formData.country}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, country: value })
+                          }
                         />
                       </div>
 
