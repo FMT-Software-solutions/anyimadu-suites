@@ -1,3 +1,4 @@
+import { callNumber, emailAddress } from '@/lib/constants';
 import { Mail, Phone, MapPin } from 'lucide-react';
 
 export default function Footer() {
@@ -6,12 +7,11 @@ export default function Footer() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
-            <h3 className="text-2xl font-bold text-primary mb-4">
+            <h3 className="text-2xl font-bold text-primary mb-1">
               Anyimadu Suites
             </h3>
-            <p className="text-sm mb-4">
-              Premium relaxation and tourism destination in Ghana. Experience
-              luxury, comfort, and exceptional hospitality.
+            <p className="text-sm mb-2">
+              Your premium destination for relaxation and Natural Serenity
             </p>
             <p className="text-xs text-gray-400">
               Relaxation • Tourism • Hospitality
@@ -44,7 +44,7 @@ export default function Footer() {
                   href="/contact"
                   className="text-sm hover:text-primary transition-colors"
                 >
-                  Contact
+                  Contact Us
                 </a>
               </li>
             </ul>
@@ -57,15 +57,15 @@ export default function Footer() {
             <ul className="space-y-3">
               <li className="flex items-start space-x-3">
                 <MapPin className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                <span className="text-sm">Ghana</span>
+                <span className="text-sm">Central Region, Ghana</span>
               </li>
               <li className="flex items-start space-x-3">
                 <Phone className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                <span className="text-sm">+233 XX XXX XXXX</span>
+                <span className="text-sm">{callNumber}</span>
               </li>
               <li className="flex items-start space-x-3">
                 <Mail className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                <span className="text-sm">info@anyimadusuites.com</span>
+                <span className="text-sm">{emailAddress}</span>
               </li>
             </ul>
           </div>

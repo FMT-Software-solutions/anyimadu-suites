@@ -1,15 +1,8 @@
-import { useState } from 'react';
+import { SearchSuitesForm } from '@/components/SearchSuitesForm';
+import { useState, useEffect } from 'react';
 import SuiteCard from '../components/SuiteCard';
 import { Button } from '../components/ui/button';
-import { Calendar } from '../components/ui/calendar';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '../components/ui/popover';
-import { CalendarIcon, Search } from 'lucide-react';
-import { format } from 'date-fns';
-import { cn } from '../lib/utils';
+import { useSearchParams } from 'react-router-dom';
 
 const allSuites = [
   {
@@ -21,6 +14,14 @@ const allSuites = [
       'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=800',
     price: 450,
     capacity: 4,
+    gallery: [
+      'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/262048/pexels-photo-262048.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/1743231/pexels-photo-1743231.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/1743229/pexels-photo-1743229.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/271618/pexels-photo-271618.jpeg?auto=compress&cs=tinysrgb&w=800',
+    ],
   },
   {
     id: 2,
@@ -31,6 +32,13 @@ const allSuites = [
       'https://images.pexels.com/photos/262048/pexels-photo-262048.jpeg?auto=compress&cs=tinysrgb&w=800',
     price: 320,
     capacity: 3,
+    gallery: [
+      'https://images.pexels.com/photos/262048/pexels-photo-262048.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/1743231/pexels-photo-1743231.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/271618/pexels-photo-271618.jpeg?auto=compress&cs=tinysrgb&w=800',
+    ],
   },
   {
     id: 3,
@@ -41,6 +49,13 @@ const allSuites = [
       'https://images.pexels.com/photos/1743231/pexels-photo-1743231.jpeg?auto=compress&cs=tinysrgb&w=800',
     price: 380,
     capacity: 2,
+    gallery: [
+      'https://images.pexels.com/photos/1743231/pexels-photo-1743231.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/262048/pexels-photo-262048.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/271618/pexels-photo-271618.jpeg?auto=compress&cs=tinysrgb&w=800',
+    ],
   },
   {
     id: 4,
@@ -51,6 +66,14 @@ const allSuites = [
       'https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=800',
     price: 550,
     capacity: 4,
+    gallery: [
+      'https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/262048/pexels-photo-262048.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/1743231/pexels-photo-1743231.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/1743229/pexels-photo-1743229.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/271618/pexels-photo-271618.jpeg?auto=compress&cs=tinysrgb&w=800',
+    ],
   },
   {
     id: 5,
@@ -61,16 +84,45 @@ const allSuites = [
       'https://images.pexels.com/photos/1743229/pexels-photo-1743229.jpeg?auto=compress&cs=tinysrgb&w=800',
     price: 290,
     capacity: 2,
+    gallery: [
+      'https://images.pexels.com/photos/1743229/pexels-photo-1743229.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/262048/pexels-photo-262048.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/1743231/pexels-photo-1743231.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/271618/pexels-photo-271618.jpeg?auto=compress&cs=tinysrgb&w=800',
+    ],
   },
 ];
 
 export default function Suites() {
-  const [checkIn, setCheckIn] = useState<Date>();
-  const [checkOut, setCheckOut] = useState<Date>();
   const [filteredSuites, setFilteredSuites] = useState(allSuites);
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [initialCheckIn, setInitialCheckIn] = useState<Date | null>(null);
+  const [initialCheckOut, setInitialCheckOut] = useState<Date | null>(null);
 
-  const handleSearch = () => {
+  // Handle URL parameters from navigation
+  useEffect(() => {
+    const checkInParam = searchParams.get('checkIn');
+    const checkOutParam = searchParams.get('checkOut');
+
+    if (checkInParam) {
+      const checkInDate = new Date(checkInParam);
+      setInitialCheckIn(checkInDate);
+    }
+
+    if (checkOutParam) {
+      const checkOutDate = new Date(checkOutParam);
+      setInitialCheckOut(checkOutDate);
+    }
+
+    // If we have dates from URL, perform initial search
+    if (checkInParam && checkOutParam) {
+      handleSearch(new Date(checkInParam), new Date(checkOutParam));
+    }
+  }, [searchParams]);
+
+  const handleSearch = (checkIn: Date | null, checkOut: Date | null) => {
     setHasSearched(true);
     if (checkIn && checkOut) {
       const available = allSuites.filter(() => Math.random() > 0.2);
@@ -90,7 +142,7 @@ export default function Suites() {
       <section className="relative py-20 bg-linear-to-br from-primary/10 to-stone-50">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h1 className="text-5xl font-bold text-gray-900 mb-4">
+            <h1 className="text-3xl md:text-5xl font-bold text-gray-900 mb-4">
               Our Exclusive Suites
             </h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
@@ -98,102 +150,20 @@ export default function Suites() {
             </p>
           </div>
 
-          <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8">
-            <h2 className="text-2xl font-semibold mb-6 text-center">
-              Find Available Suites
-            </h2>
+          <SearchSuitesForm
+            onSearch={handleSearch}
+            initialCheckIn={initialCheckIn}
+            initialCheckOut={initialCheckOut}
+          />
 
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Check-in Date
-                </label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'w-full justify-start text-left font-normal h-12',
-                        !checkIn && 'text-muted-foreground'
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {checkIn ? (
-                        format(checkIn, 'PPP')
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={checkIn}
-                      onSelect={setCheckIn}
-                      disabled={(date) => date < new Date()}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Check-out Date
-                </label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'w-full justify-start text-left font-normal h-12',
-                        !checkOut && 'text-muted-foreground'
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {checkOut ? (
-                        format(checkOut, 'PPP')
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={checkOut}
-                      onSelect={setCheckOut}
-                      disabled={(date) => date < (checkIn || new Date())}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 block">
-                  &nbsp;
-                </label>
-                <Button
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-12"
-                  onClick={handleSearch}
-                >
-                  <Search className="mr-2 h-4 w-4" />
-                  Search
-                </Button>
-              </div>
+          {hasSearched && (
+            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-green-800 text-center">
+                Showing {filteredSuites.length} available suite
+                {filteredSuites.length !== 1 ? 's' : ''} for your selected dates
+              </p>
             </div>
-
-            {hasSearched && checkIn && checkOut && (
-              <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-800 text-center">
-                  Showing {filteredSuites.length} available suite
-                  {filteredSuites.length !== 1 ? 's' : ''} for your selected
-                  dates
-                </p>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </section>
 
@@ -208,6 +178,7 @@ export default function Suites() {
                 image={suite.image}
                 price={suite.price}
                 capacity={suite.capacity}
+                gallery={suite.gallery}
                 onBookNow={handleBookNow}
               />
             ))}
@@ -222,8 +193,8 @@ export default function Suites() {
                 variant="outline"
                 className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                 onClick={() => {
-                  setCheckIn(undefined);
-                  setCheckOut(undefined);
+                  setInitialCheckIn(null);
+                  setInitialCheckOut(null);
                   setFilteredSuites(allSuites);
                   setHasSearched(false);
                 }}
