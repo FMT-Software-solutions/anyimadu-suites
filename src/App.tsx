@@ -4,7 +4,7 @@ import Home from './pages/Home';
 import Suites from './pages/Suites';
 import Contact from './pages/Contact';
 import Booking from './pages/Booking';
-import BookingModal from './components/BookingModal';
+import { AdminPage } from './pages/AdminPage';
 
 function App() {
   return (
@@ -16,8 +16,8 @@ function App() {
           <Route path="contact" element={<Contact />} />
           <Route path="/booking/:suiteId" element={<Booking />} />
         </Route>
+        <Route path="/admin/*" element={<AdminPage />} />
       </Routes>
-      <BookingModal />
     </Router>
   );
 }
