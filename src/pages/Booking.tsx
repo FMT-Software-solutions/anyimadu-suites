@@ -134,7 +134,7 @@ export default function Booking() {
           alt={suite.name}
           className="w-full h-full object-cover opacity-70"
         />
-        <div className="absolute inset-0 bg-black bg-opacity-40" />
+        <div className="absolute inset-0 bg-black/90" />
         <div className="absolute inset-0 flex items-center">
           <div className="container mx-auto px-4">
             <Button
@@ -145,8 +145,17 @@ export default function Booking() {
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
-            <h1 className="text-4xl font-bold text-white mb-2">{suite.name}</h1>
-            <p className="text-xl text-gray-200">Complete your booking</p>
+            <div className='flex gap-4'>
+              <img
+                src={suite.image}
+                alt={suite.name}
+                className="w-36 h-36 object-cover opacity-70 rounded-lg"
+              />
+              <div>
+                <h1 className="text-4xl font-bold text-white mb-2">{suite.name}</h1>
+                <p className="text-xl text-gray-200">Complete your booking</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

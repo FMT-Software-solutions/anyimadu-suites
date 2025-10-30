@@ -2,15 +2,27 @@ import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
-import { CalendarIcon, Search } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { CalendarIcon, Search, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 
 interface SearchSuitesFormProps {
-  onSearch?: (checkIn: Date | null, checkOut: Date | null) => void;
+  onSearch?: (
+    checkIn: Date | null,
+    checkOut: Date | null,
+    guests: number
+  ) => void;
   initialCheckIn?: Date | null;
   initialCheckOut?: Date | null;
+  initialGuests?: number;
   navigateOnSearch?: boolean;
   className?: string;
   variant?: 'default' | 'overlay';
@@ -20,30 +32,34 @@ export function SearchSuitesForm({
   onSearch,
   initialCheckIn = null,
   initialCheckOut = null,
+  initialGuests = 2,
   navigateOnSearch = false,
   className = '',
   variant = 'default',
 }: SearchSuitesFormProps) {
   const [checkIn, setCheckIn] = useState<Date | null>(initialCheckIn);
   const [checkOut, setCheckOut] = useState<Date | null>(initialCheckOut);
+  const [guests, setGuests] = useState<number>(initialGuests);
   const navigate = useNavigate();
 
   // Update state when initial values change (for URL params)
   useEffect(() => {
     setCheckIn(initialCheckIn);
     setCheckOut(initialCheckOut);
-  }, [initialCheckIn, initialCheckOut]);
+    setGuests(initialGuests);
+  }, [initialCheckIn, initialCheckOut, initialGuests]);
 
   const handleSearch = () => {
     if (navigateOnSearch) {
-      // Navigate to Suites page with dates as URL params
+      // Navigate to Suites page with dates and guests as URL params
       const params = new URLSearchParams();
       if (checkIn) params.set('checkIn', checkIn.toISOString());
       if (checkOut) params.set('checkOut', checkOut.toISOString());
+      params.set('guests', guests.toString());
       navigate(`/suites?${params.toString()}`);
     } else if (onSearch) {
       // Call the provided onSearch function
-      onSearch(checkIn, checkOut);
+      onSearch(checkIn, checkOut, guests);
     }
   };
 
@@ -56,7 +72,7 @@ export function SearchSuitesForm({
 
   return (
     <div className={containerClasses}>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {/* Check-in Date */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-700 block">
@@ -121,8 +137,35 @@ export function SearchSuitesForm({
           </Popover>
         </div>
 
+        {/* Number of Guests */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700 hidden md:block">
+            Guests
+          </label>
+          <Select
+            value={guests.toString()}
+            onValueChange={(value) => setGuests(parseInt(value))}
+          >
+            <SelectTrigger className="w-full min-h-12">
+              <SelectValue>
+                <div className="flex items-center">
+                  <Users className="mr-2 h-4 w-4" />
+                  {guests} {guests === 1 ? 'Guest' : 'Guests'}
+                </div>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
+                <SelectItem key={num} value={num.toString()}>
+                  {num} {num === 1 ? 'Guest' : 'Guests'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Search Button */}
-        <div className="space-y-2 col-span-2 md:col-span-1">
+        <div className="space-y-2">
           <label className="text-sm font-medium text-gray-700 hidden md:block ">
             &nbsp;
           </label>

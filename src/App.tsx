@@ -14,8 +14,8 @@ function App() {
           <Route index element={<Home />} />
           <Route path="suites" element={<Suites />} />
           <Route path="contact" element={<Contact />} />
+          <Route path="/booking/:suiteId" element={<Booking />} />
         </Route>
-        <Route path="/booking/:suiteId" element={<Booking />} />
       </Routes>
       <BookingModal />
     </Router>

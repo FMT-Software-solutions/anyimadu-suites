@@ -122,7 +122,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
-      <div className="h-20 md:h-16" />
       <section className="mx-auto relative py-28 md:py-48">
         <div
           className="absolute inset-0 z-0"
