@@ -16,7 +16,7 @@ function App() {
           <Route path="contact" element={<Contact />} />
           <Route path="/booking/:suiteId" element={<Booking />} />
         </Route>
-        <Route path="/admin/*" element={<AdminPage />} />
+        <Route path="/admin" element={<AdminPage />} />
       </Routes>
     </Router>
   );
