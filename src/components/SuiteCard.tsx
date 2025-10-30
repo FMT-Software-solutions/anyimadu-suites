@@ -108,7 +108,11 @@ export default function SuiteCard({ suite }: SuiteCardProps) {
                 Book Now
               </Button>
             </div>
-            <SuiteDetails description={suite.description} capacity={suite.capacity} />
+            <SuiteDetails 
+              description={suite.description} 
+              capacity={suite.capacity} 
+              amenities={suite.amenities}
+            />
           </div>
         </DialogContent>
       </Dialog>

@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
-import { Wifi, Coffee, Bed, Users } from 'lucide-react';
+import { Check, Users } from 'lucide-react';
 import { Button } from './ui/button';
+import { type Amenity } from '../lib/types';
 
 interface SuiteDetailsProps {
   description: string;
   capacity: number;
+  amenities: Amenity[];
 }
 
-export const SuiteDetails: React.FC<SuiteDetailsProps> = ({ description, capacity }) => {
+export const SuiteDetails: React.FC<SuiteDetailsProps> = ({ description, capacity, amenities }) => {
   const [activeTab, setActiveTab] = useState<'description' | 'amenities'>('description');
 
-  const amenities = [
-    { icon: Wifi, label: 'Free Wi-Fi' },
-    { icon: Coffee, label: 'Complimentary Breakfast' },
-    { icon: Bed, label: 'King Size Bed' },
-    { icon: Users, label: `Up to ${capacity} Guests` },
+  // Add capacity as an amenity if not already included
+  const allAmenities = [
+    ...amenities,
+    { icon: Users, label: `Up to ${capacity} Guests` }
   ];
 
   return (
@@ -29,12 +30,15 @@ export const SuiteDetails: React.FC<SuiteDetailsProps> = ({ description, capacit
         <div>
           <h3 className="text-lg font-semibold mb-3">Amenities</h3>
           <div className="grid grid-cols-2 gap-4">
-            {amenities.map((amenity, index) => (
-              <div key={index} className="flex items-center space-x-2">
-                <amenity.icon className="w-5 h-5 text-primary" />
-                <span>{amenity.label}</span>
-              </div>
-            ))}
+            {allAmenities.map((amenity, index) => {
+              const IconComponent = amenity.icon;
+              return (
+                <div key={index} className="flex items-center space-x-2">
+                  {IconComponent ? <IconComponent className="w-5 h-5 text-primary" /> : <Check className="w-5 h-5 text-primary" />}
+                  <span>{amenity.label}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -78,12 +82,15 @@ export const SuiteDetails: React.FC<SuiteDetailsProps> = ({ description, capacit
           {activeTab === 'amenities' && (
             <div className="animate-in fade-in-50 duration-200">
               <div className="grid grid-cols-1 gap-3">
-                {amenities.map((amenity, index) => (
-                  <div key={index} className="flex items-center space-x-3">
-                    <amenity.icon className="w-5 h-5 text-primary" />
-                    <span>{amenity.label}</span>
-                  </div>
-                ))}
+                {allAmenities.map((amenity, index) => {
+                  const IconComponent = amenity.icon;
+                  return (
+                    <div key={index} className="flex items-center space-x-3">
+                      {IconComponent ? <IconComponent className="w-5 h-5 text-primary" /> : <Check className="w-5 h-5 text-primary" />}
+                      <span>{amenity.label}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

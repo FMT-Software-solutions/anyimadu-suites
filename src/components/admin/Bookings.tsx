@@ -244,7 +244,7 @@ export const Bookings = () => {
                 New Booking
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Booking</DialogTitle>
                 <DialogDescription>

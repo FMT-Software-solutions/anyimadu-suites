@@ -1,3 +1,10 @@
+import type { LucideIcon } from 'lucide-react';
+
+export interface Amenity {
+  icon: LucideIcon;
+  label: string;
+}
+
 export interface Suite {
   id: number;
   name: string;
@@ -6,6 +13,7 @@ export interface Suite {
   price: number;
   capacity: number;
   gallery: string[];
+  amenities: Amenity[];
 }
 
 export interface Booking {

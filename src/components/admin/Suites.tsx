@@ -40,7 +40,8 @@ import {
   Users,
 } from 'lucide-react';
 import { allSuites } from '@/lib/constants';
-import { type Suite } from '@/lib/types';
+import { type Suite, type Amenity } from '@/lib/types';
+import { AmenitiesSelector } from './AmenitiesSelector';
 
 interface SuiteFormData {
   name: string;
@@ -49,6 +50,7 @@ interface SuiteFormData {
   price: string;
   capacity: string;
   gallery: string[];
+  amenities: Amenity[];
 }
 
 export const Suites = () => {
@@ -65,6 +67,7 @@ export const Suites = () => {
     price: '',
     capacity: '2',
     gallery: [],
+    amenities: [],
   });
 
   const resetForm = () => {
@@ -75,6 +78,7 @@ export const Suites = () => {
       price: '',
       capacity: '2',
       gallery: [],
+      amenities: [],
     });
     setNewGalleryUrl('');
   };
@@ -89,6 +93,7 @@ export const Suites = () => {
       price: parseFloat(formData.price),
       capacity: parseInt(formData.capacity),
       gallery: formData.gallery,
+      amenities: formData.amenities,
     };
     setSuites([...suites, newSuite]);
     setShowCreateDialog(false);
@@ -104,6 +109,7 @@ export const Suites = () => {
       price: suite.price.toString(),
       capacity: suite.capacity.toString(),
       gallery: [...suite.gallery],
+      amenities: [...suite.amenities],
     });
     setShowEditDialog(true);
   };
@@ -120,6 +126,7 @@ export const Suites = () => {
       price: parseFloat(formData.price),
       capacity: parseInt(formData.capacity),
       gallery: formData.gallery,
+      amenities: formData.amenities,
     };
     
     setSuites(suites.map(s => s.id === editingSuite.id ? updatedSuite : s));
@@ -276,6 +283,11 @@ export const Suites = () => {
         )}
       </div>
 
+      <AmenitiesSelector
+        selectedAmenities={formData.amenities}
+        onAmenitiesChange={(amenities) => setFormData({ ...formData, amenities })}
+      />
+
       <div className="flex justify-end space-x-2">
         <Button 
           type="button" 
@@ -323,7 +335,7 @@ export const Suites = () => {
               Add Suite
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Suite</DialogTitle>
               <DialogDescription>
@@ -446,7 +458,7 @@ export const Suites = () => {
 
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Suite</DialogTitle>
             <DialogDescription>

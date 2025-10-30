@@ -1,10 +1,48 @@
-import { type Suite } from './types';
+import { 
+  Wifi, 
+  Coffee, 
+  Bed, 
+  Users, 
+  Car, 
+  Tv, 
+  Bath, 
+  AirVent, 
+  Utensils, 
+  Shield, 
+  Waves, 
+  Dumbbell 
+} from 'lucide-react';
+import { type Suite, type Amenity } from './types';
 
 export const callNumber = '+27725631091';
 export const whatsappNumber = '+233536825592';
 export const emailAddress = 'anyimadusuites@gmail.com';
 
 export const whatsappLink = `https://wa.me/${whatsappNumber}`;
+
+// Available amenities for suites
+export const availableAmenities: Amenity[] = [
+  { icon: Wifi, label: 'Free Wi-Fi' },
+  { icon: Coffee, label: 'Complimentary Breakfast' },
+  { icon: Bed, label: 'King Size Bed' },
+  { icon: Users, label: 'Guest Capacity' },
+  { icon: Car, label: 'Free Parking' },
+  { icon: Tv, label: 'Smart TV' },
+  { icon: Bath, label: 'Private Bathroom' },
+  { icon: AirVent, label: 'Air Conditioning' },
+  { icon: Utensils, label: 'Room Service' },
+  { icon: Shield, label: '24/7 Security' },
+  { icon: Waves, label: 'Pool Access' },
+  { icon: Dumbbell, label: 'Gym Access' },
+];
+
+// Default amenities that all suites have
+const defaultAmenities: Amenity[] = [
+  { icon: Wifi, label: 'Free Wi-Fi' },
+  { icon: Coffee, label: 'Complimentary Breakfast' },
+  { icon: Bed, label: 'King Size Bed' },
+  { icon: Bath, label: 'Private Bathroom' },
+];
 
 export const allSuites: Suite[] = [
   {
@@ -24,6 +62,16 @@ export const allSuites: Suite[] = [
       'https://images.pexels.com/photos/1743229/pexels-photo-1743229.jpeg?auto=compress&cs=tinysrgb&w=800',
       'https://images.pexels.com/photos/271618/pexels-photo-271618.jpeg?auto=compress&cs=tinysrgb&w=800',
     ],
+    amenities: [
+      ...defaultAmenities,
+      { icon: Car, label: 'Free Parking' },
+      { icon: Tv, label: 'Smart TV' },
+      { icon: AirVent, label: 'Air Conditioning' },
+      { icon: Utensils, label: 'Room Service' },
+      { icon: Shield, label: '24/7 Security' },
+      { icon: Waves, label: 'Pool Access' },
+      { icon: Dumbbell, label: 'Gym Access' },
+    ],
   },
   {
     id: 2,
@@ -41,6 +89,14 @@ export const allSuites: Suite[] = [
       'https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=800',
       'https://images.pexels.com/photos/271618/pexels-photo-271618.jpeg?auto=compress&cs=tinysrgb&w=800',
     ],
+    amenities: [
+      ...defaultAmenities,
+      { icon: Car, label: 'Free Parking' },
+      { icon: Tv, label: 'Smart TV' },
+      { icon: AirVent, label: 'Air Conditioning' },
+      { icon: Shield, label: '24/7 Security' },
+      { icon: Waves, label: 'Pool Access' },
+    ],
   },
   {
     id: 3,
@@ -57,6 +113,15 @@ export const allSuites: Suite[] = [
       'https://images.pexels.com/photos/262048/pexels-photo-262048.jpeg?auto=compress&cs=tinysrgb&w=800',
       'https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=800',
       'https://images.pexels.com/photos/271618/pexels-photo-271618.jpeg?auto=compress&cs=tinysrgb&w=800',
+    ],
+    amenities: [
+      ...defaultAmenities,
+      { icon: Car, label: 'Free Parking' },
+      { icon: Tv, label: 'Smart TV' },
+      { icon: AirVent, label: 'Air Conditioning' },
+      { icon: Utensils, label: 'Room Service' },
+      { icon: Shield, label: '24/7 Security' },
+      { icon: Dumbbell, label: 'Gym Access' },
     ],
   },
   {
@@ -76,6 +141,17 @@ export const allSuites: Suite[] = [
       'https://images.pexels.com/photos/1743229/pexels-photo-1743229.jpeg?auto=compress&cs=tinysrgb&w=800',
       'https://images.pexels.com/photos/271618/pexels-photo-271618.jpeg?auto=compress&cs=tinysrgb&w=800',
     ],
+    amenities: [
+      ...defaultAmenities,
+      { icon: Car, label: 'Free Parking' },
+      { icon: Tv, label: 'Smart TV' },
+      { icon: Bath, label: 'Private Bathroom' },
+      { icon: AirVent, label: 'Air Conditioning' },
+      { icon: Utensils, label: 'Room Service' },
+      { icon: Shield, label: '24/7 Security' },
+      { icon: Waves, label: 'Pool Access' },
+      { icon: Dumbbell, label: 'Gym Access' },
+    ],
   },
   {
     id: 5,
@@ -92,6 +168,13 @@ export const allSuites: Suite[] = [
       'https://images.pexels.com/photos/262048/pexels-photo-262048.jpeg?auto=compress&cs=tinysrgb&w=800',
       'https://images.pexels.com/photos/1743231/pexels-photo-1743231.jpeg?auto=compress&cs=tinysrgb&w=800',
       'https://images.pexels.com/photos/271618/pexels-photo-271618.jpeg?auto=compress&cs=tinysrgb&w=800',
+    ],
+    amenities: [
+      ...defaultAmenities,
+      { icon: Car, label: 'Free Parking' },
+      { icon: Tv, label: 'Smart TV' },
+      { icon: AirVent, label: 'Air Conditioning' },
+      { icon: Shield, label: '24/7 Security' },
     ],
   },
 ];
