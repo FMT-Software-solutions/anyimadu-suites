@@ -128,7 +128,7 @@ export default function Home() {
           className="absolute inset-0 z-0"
           style={{
             backgroundImage:
-              'url(https://res.cloudinary.com/dkolqpqf2/image/upload/v1763994863/ChatGPT_Image_Nov_24_2025_02_34_07_PM_n6kttn.png)',
+              'url(https://res.cloudinary.com/dkolqpqf2/image/upload/v1764075063/IMG_4409_pb1ggx.png)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
