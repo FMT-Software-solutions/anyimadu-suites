@@ -17,19 +17,24 @@ import { type Suite } from '../lib/types';
 
 interface SuiteCardProps {
   suite: Suite;
+  checkIn?: Date | null;
+  checkOut?: Date | null;
+  guests?: number;
 }
 
-export default function SuiteCard({ suite }: SuiteCardProps) {
+export default function SuiteCard({ suite, checkIn, checkOut, guests }: SuiteCardProps) {
   const [showDetails, setShowDetails] = useState(false);
   const navigate = useNavigate();
+  const canBook = !!(checkIn && checkOut && typeof guests === 'number' && guests > 0);
 
   const handleBookNow = () => {
-    // Convert suite name to URL-friendly format
-    const suiteId = suite.name.toLowerCase().replace(/\s+/g, '-');
-    // Pass the complete suite data through navigation state
-    navigate(`/booking/${suiteId}`, { 
-      state: { suite } 
-    });
+    if (!canBook) return;
+    const params = new URLSearchParams();
+    if (checkIn) params.set('checkIn', checkIn.toISOString());
+    if (checkOut) params.set('checkOut', checkOut.toISOString());
+    if (guests) params.set('guests', String(guests));
+    const qs = params.toString();
+    navigate(qs ? `/booking/${suite.id}?${qs}` : `/booking/${suite.id}`);
   };
 
   return (
@@ -74,6 +79,7 @@ export default function SuiteCard({ suite }: SuiteCardProps) {
           <Button
             className="flex-1 bg-primary hover:bg-primary/90 text-white"
             onClick={handleBookNow}
+            disabled={!canBook}
           >
             Book Now
           </Button>
@@ -104,6 +110,7 @@ export default function SuiteCard({ suite }: SuiteCardProps) {
                   setShowDetails(false);
                   handleBookNow();
                 }}
+                disabled={!canBook}
               >
                 Book Now
               </Button>

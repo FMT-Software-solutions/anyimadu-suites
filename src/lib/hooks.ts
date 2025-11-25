@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 
 export interface Country {
   name: {
@@ -40,4 +41,13 @@ export const useCountries = () => {
     staleTime: 1000 * 60 * 60 * 24, // 24 hours - countries don't change often
     gcTime: 1000 * 60 * 60 * 24 * 7, // 7 days
   })
+}
+
+export const useDebounce = <T,>(value: T, delay: number): T => {
+  const [debounced, setDebounced] = useState<T>(value)
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(id)
+  }, [value, delay])
+  return debounced
 }

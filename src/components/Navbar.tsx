@@ -44,11 +44,13 @@ export default function Navbar() {
             {/* Right Side - Desktop */}
             <div className="hidden md:flex items-center space-x-6">
               {/* Book Now Button */}
-              <Link to="/suites">
-                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2 text-sm font-medium">
-                  Find Suites
-                </Button>
-              </Link>
+              {location.pathname !== '/suites' && (
+                <Link to="/suites">
+                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2 text-sm font-medium">
+                    Find Suites
+                  </Button>
+                </Link>
+              )}
 
               {/* Contact Info */}
               <div className="text-right border-l border-gray-600 pl-4">

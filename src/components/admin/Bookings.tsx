@@ -27,15 +27,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { allSuites } from '@/lib/constants';
-import { type Booking } from '@/lib/types';
+import { useSuites, type SuiteWithRelations } from '@/lib/queries/suites';
+import { type BookingRecord } from '@/lib/types';
+import { useBookings, useCreateBooking, checkSuiteAvailability, useUpdateBookingStatus } from '@/lib/queries/bookings';
+import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { CopyButton } from '@/components/CopyButton';
+import { toast } from 'sonner';
+import { BookedDatesList } from '@/components/admin/suites/BookedDatesList';
+import { useDebounce } from '@/lib/hooks';
+import { ExportBookings } from '@/components/admin/ExportBookings';
 import {
   CalendarIcon,
   Calendar as CalendarIconLucide,
   DollarSign,
-  Download,
   Edit,
   Eye,
   MoreHorizontal,
@@ -43,86 +49,27 @@ import {
   Search,
   Trash2,
   TrendingUp,
-  Users as UsersIcon
+  Users as UsersIcon,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  CheckCircle,
 } from 'lucide-react';
-import { useState } from 'react';
-
-// Mock bookings data
-const mockBookings: Booking[] = [
-  {
-    id: 1,
-    suiteId: 1,
-    suiteName: 'Royal Paradise Suite',
-    customerId: 1,
-    customerName: 'John Doe',
-    customerEmail: 'john@example.com',
-    customerPhone: '+233 24 123 4567',
-    checkIn: '2024-01-15',
-    checkOut: '2024-01-18',
-    guests: 2,
-    totalAmount: 1350,
-    status: 'confirmed',
-    createdAt: '2024-01-10',
-    billingAddress: {
-      address: '123 Main St',
-      city: 'Accra',
-      state: 'Greater Accra',
-      zip: '00233',
-      country: 'Ghana',
-    },
-  },
-  {
-    id: 2,
-    suiteId: 2,
-    suiteName: 'Garden View Suite',
-    customerId: 2,
-    customerName: 'Jane Smith',
-    customerEmail: 'jane@example.com',
-    customerPhone: '+233 24 987 6543',
-    checkIn: '2024-01-16',
-    checkOut: '2024-01-19',
-    guests: 3,
-    totalAmount: 960,
-    status: 'pending',
-    createdAt: '2024-01-11',
-    billingAddress: {
-      address: '456 Oak Ave',
-      city: 'Kumasi',
-      state: 'Ashanti',
-      zip: '00233',
-      country: 'Ghana',
-    },
-  },
-  {
-    id: 3,
-    suiteId: 3,
-    suiteName: 'Executive Suite',
-    customerId: 3,
-    customerName: 'Mike Johnson',
-    customerEmail: 'mike@example.com',
-    customerPhone: '+233 24 555 0123',
-    checkIn: '2024-01-17',
-    checkOut: '2024-01-20',
-    guests: 2,
-    totalAmount: 1140,
-    status: 'confirmed',
-    createdAt: '2024-01-12',
-    billingAddress: {
-      address: '789 Pine St',
-      city: 'Takoradi',
-      state: 'Western',
-      zip: '00233',
-      country: 'Ghana',
-    },
-  },
-];
-
-const bookingStats = {
-  totalBookings: mockBookings.length,
-  confirmedBookings: mockBookings.filter(b => b.status === 'confirmed').length,
-  pendingBookings: mockBookings.filter(b => b.status === 'pending').length,
-  totalRevenue: mockBookings.reduce((sum, b) => sum + b.totalAmount, 0),
-};
+type UIBooking = {
+  id: string
+  suiteName: string
+  customerName: string
+  customerEmail: string
+  checkIn: string
+  checkOut: string
+  guests: number
+  totalAmount: number
+  status: BookingRecord['status']
+  billingState?: string | null
+  billingCountry?: string | null
+  nights: number
+}
 
 interface BookingFormData {
   suiteId: string;
@@ -140,11 +87,21 @@ interface BookingFormData {
 }
 
 export const Bookings = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState('this-month');
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [bookings] = useState<Booking[]>(mockBookings);
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'pending' | 'confirmed' | 'cancelled' | 'completed' | 'all'>('all')
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'this-week' | 'this-month' | 'last-month'>('this-month')
+  const [suiteFilter, setSuiteFilter] = useState<string>('all')
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [page, setPage] = useState(1)
+  const perPage = 10
+  const debouncedSearch = useDebounce(searchTerm, 1000)
+  const bookingsQuery = useBookings(page, perPage, { search: debouncedSearch, status: statusFilter, dateRange: dateFilter, suiteId: suiteFilter !== 'all' ? suiteFilter : undefined })
+  const { data: suites } = useSuites()
+  const suitesMap = useMemo(() => {
+    const map = new Map<string, SuiteWithRelations>()
+    ;(suites || []).forEach((s) => map.set(s.id, s))
+    return map
+  }, [suites])
   
   const [formData, setFormData] = useState<BookingFormData>({
     suiteId: '',
@@ -158,16 +115,35 @@ export const Bookings = () => {
     billingZip: '',
     billingCountry: '',
   });
+  const [createError, setCreateError] = useState<string | null>(null)
+  const createBooking = useCreateBooking()
+  const updateStatus = useUpdateBookingStatus()
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false)
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null)
 
-  const filteredBookings = bookings.filter(booking => {
-    const matchesSearch = booking.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         booking.suiteName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         booking.customerEmail.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || booking.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const uiRows: UIBooking[] = useMemo(() => {
+    const rows: BookingRecord[] = (bookingsQuery.data?.rows ?? []) as BookingRecord[]
+    return rows.map((b: BookingRecord) => {
+      const suite = suitesMap.get(b.suite_id)
+      const ci = new Date(b.check_in)
+      const co = new Date(b.check_out)
+      const nights = Math.max(1, Math.ceil(Math.abs(co.getTime() - ci.getTime()) / (1000 * 60 * 60 * 24)))
+      return {
+        id: b.id,
+        suiteName: suite?.name || 'Unknown Suite',
+        customerName: b.customer_name,
+        customerEmail: b.customer_email,
+        checkIn: b.check_in,
+        checkOut: b.check_out,
+        guests: b.guest_count,
+        totalAmount: b.total_amount,
+        status: b.status,
+        billingState: b.billing_state ?? null,
+        billingCountry: b.billing_country ?? null,
+        nights,
+      }
+    })
+  }, [bookingsQuery.data, suitesMap])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -193,21 +169,49 @@ export const Bookings = () => {
   };
 
   const calculateTotal = () => {
-    if (!formData.suiteId) return 0;
-    const suite = allSuites.find(s => s.id === parseInt(formData.suiteId));
-    if (!suite) return 0;
-    const nights = calculateNights();
-    const subtotal = suite.price * nights;
-    const tax = subtotal * 0.15;
-    return subtotal + tax;
-  };
+    if (!formData.suiteId) return 0
+    const suite = suitesMap.get(formData.suiteId)
+    if (!suite) return 0
+    const nights = calculateNights()
+    const subtotal = Number(suite.price) * nights
+    return subtotal
+  }
 
-  const handleCreateBooking = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Here you would typically send the data to your backend
-    console.log('Creating booking:', formData);
-    setShowCreateDialog(false);
-    // Reset form
+  const handleCreateBooking = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCreateError(null)
+    if (!formData.suiteId || !formData.checkIn || !formData.checkOut) {
+      setCreateError('Please select suite and dates.')
+      return
+    }
+    const suite = suitesMap.get(formData.suiteId)
+    const guests = parseInt(formData.guests, 10) || 1
+    if (suite && guests > Number(suite.capacity)) {
+      setCreateError(`Guest count exceeds suite capacity of ${suite.capacity}.`)
+      return
+    }
+    const available = await checkSuiteAvailability(formData.suiteId, formData.checkIn, formData.checkOut, guests)
+    if (!available) {
+      setCreateError('Selected suite is not available for selected dates.')
+      return
+    }
+    const total = calculateTotal()
+    await createBooking.mutateAsync({
+      suite_id: formData.suiteId,
+      customer_name: formData.customerName,
+      customer_email: formData.customerEmail,
+      customer_phone: formData.customerPhone,
+      check_in: formData.checkIn,
+      check_out: formData.checkOut,
+      guest_count: guests,
+      total_amount: Number(total.toFixed(2)),
+      billing_address: formData.billingAddress,
+      billing_city: formData.billingCity,
+      billing_state: formData.billingState,
+      billing_zip: formData.billingZip,
+      billing_country: formData.billingCountry,
+    })
+    setShowCreateDialog(false)
     setFormData({
       suiteId: '',
       customerName: '',
@@ -219,8 +223,9 @@ export const Bookings = () => {
       billingState: '',
       billingZip: '',
       billingCountry: '',
-    });
-  };
+    })
+    bookingsQuery.refetch()
+  }
 
   return (
     <div className="space-y-6">
@@ -233,10 +238,6 @@ export const Bookings = () => {
           </p>
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
               <Button>
@@ -244,7 +245,7 @@ export const Bookings = () => {
                 New Booking
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-4xl max-h-[95vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Booking</DialogTitle>
                 <DialogDescription>
@@ -259,17 +260,22 @@ export const Bookings = () => {
                     value={formData.suiteId}
                     onValueChange={(value) => setFormData({ ...formData, suiteId: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className='w-full'>
                       <SelectValue placeholder="Select a suite" />
                     </SelectTrigger>
                     <SelectContent>
-                      {allSuites.map((suite) => (
-                        <SelectItem key={suite.id} value={suite.id.toString()}>
-                          {suite.name} - GHS {suite.price}/night
+                      {(suites || []).map((suite) => (
+                        <SelectItem key={suite.id} value={suite.id}>
+                          {suite.name} - GHS {Number(suite.price)}/night
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {formData.suiteId ? (
+                    <div className="mt-3">
+                      <BookedDatesList suiteId={formData.suiteId} />
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Customer Information */}
@@ -440,6 +446,9 @@ export const Bookings = () => {
                   </div>
                 </div>
 
+                {createError ? (
+                  <div className="text-red-600 text-sm">{createError}</div>
+                ) : null}
                 {/* Booking Summary */}
                 {formData.suiteId && (
                   <div className="bg-gray-50 p-4 rounded-lg">
@@ -451,15 +460,11 @@ export const Bookings = () => {
                       </div>
                       <div className="flex justify-between">
                         <span>Rate per night:</span>
-                        <span>GHS {allSuites.find(s => s.id === parseInt(formData.suiteId))?.price}</span>
+                        <span>GHS {suitesMap.get(formData.suiteId)?.price}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Subtotal:</span>
-                        <span>GHS {(calculateTotal() / 1.15).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Tax (15%):</span>
-                        <span>GHS {(calculateTotal() * 0.15 / 1.15).toFixed(2)}</span>
+                        <span>GHS {calculateTotal().toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between font-semibold border-t pt-1">
                         <span>Total:</span>
@@ -489,7 +494,7 @@ export const Bookings = () => {
             <CalendarIconLucide className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{bookingStats.totalBookings}</div>
+            <div className="text-2xl font-bold">{((bookingsQuery.data as { rows: BookingRecord[]; count: number } | undefined)?.count ?? 0)}</div>
             <p className="text-xs text-muted-foreground">All time bookings</p>
           </CardContent>
         </Card>
@@ -500,7 +505,7 @@ export const Bookings = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{bookingStats.confirmedBookings}</div>
+            <div className="text-2xl font-bold">{uiRows.filter((b) => b.status === 'confirmed').length}</div>
             <p className="text-xs text-muted-foreground">Confirmed bookings</p>
           </CardContent>
         </Card>
@@ -511,7 +516,7 @@ export const Bookings = () => {
             <UsersIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{bookingStats.pendingBookings}</div>
+            <div className="text-2xl font-bold">{uiRows.filter((b) => b.status === 'pending').length}</div>
             <p className="text-xs text-muted-foreground">Awaiting confirmation</p>
           </CardContent>
         </Card>
@@ -522,7 +527,7 @@ export const Bookings = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">GHS {bookingStats.totalRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">GHS {uiRows.reduce((sum, b) => sum + b.totalAmount, 0).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">Total revenue</p>
           </CardContent>
         </Card>
@@ -549,7 +554,7 @@ export const Bookings = () => {
                 />
               </div>
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
               <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
@@ -561,7 +566,7 @@ export const Bookings = () => {
                 <SelectItem value="completed">Completed</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={dateFilter} onValueChange={setDateFilter}>
+            <Select value={dateFilter} onValueChange={(v) => setDateFilter(v as any)}>
               <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Filter by date" />
               </SelectTrigger>
@@ -573,11 +578,25 @@ export const Bookings = () => {
                 <SelectItem value="last-month">Last Month</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={suiteFilter} onValueChange={(v) => setSuiteFilter(v)}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Filter by suite" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Suites</SelectItem>
+                {(suites || []).map((suite) => (
+                  <SelectItem key={suite.id} value={suite.id}>
+                    {suite.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <ExportBookings filters={{ search: debouncedSearch, status: statusFilter, dateRange: dateFilter, suiteId: suiteFilter !== 'all' ? suiteFilter : undefined }} />
           </div>
 
           {/* Bookings Table */}
           <div className="space-y-4">
-            {filteredBookings.map((booking) => (
+            {uiRows.map((booking) => (
               <div key={booking.id} className="flex items-center justify-between p-4 border rounded-lg">
                 <div className="flex-1">
                   <div className="flex items-center space-x-4">
@@ -588,7 +607,10 @@ export const Bookings = () => {
                     <div>
                       <p className="text-sm font-medium">{booking.suiteName}</p>
                       <p className="text-sm text-muted-foreground">
-                        {booking.checkIn} - {booking.checkOut}
+                        {format(new Date(booking.checkIn), 'MMM dd, yyyy')} - {format(new Date(booking.checkOut), 'MMM dd, yyyy')} · {booking.nights} {booking.nights === 1 ? 'night' : 'nights'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {booking.billingState || '-'}, {booking.billingCountry || '-'}
                       </p>
                     </div>
                   </div>
@@ -608,15 +630,15 @@ export const Bookings = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setSelectedBookingId(booking.id); setShowDetailsDialog(true) }}>
                         <Eye className="mr-2 h-4 w-4" />
                         View Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem disabled={booking.status !== 'pending'} onClick={() => updateStatus.mutate({ id: booking.id, status: 'confirmed' }, { onSuccess: () => { toast.success('Booking approved'); bookingsQuery.refetch() } })}>
                         <Edit className="mr-2 h-4 w-4" />
-                        Edit Booking
+                        Approve Booking
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600">
+                      <DropdownMenuItem className="text-red-600" onClick={() => updateStatus.mutate({ id: booking.id, status: 'cancelled' }, { onSuccess: () => { toast.success('Booking cancelled'); bookingsQuery.refetch() } })}>
                         <Trash2 className="mr-2 h-4 w-4" />
                         Cancel Booking
                       </DropdownMenuItem>
@@ -625,9 +647,93 @@ export const Bookings = () => {
                 </div>
               </div>
             ))}
+            <div className="flex items-center justify-between pt-4">
+              <div className="text-sm text-muted-foreground">
+                Page {page} of {Math.max(1, Math.ceil((((bookingsQuery.data as { rows: BookingRecord[]; count: number } | undefined)?.count || 0) / perPage)))}
+              </div>
+              <div className="space-x-2">
+                <Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Previous</Button>
+                <Button variant="outline" disabled={page >= Math.max(1, Math.ceil((((bookingsQuery.data as { rows: BookingRecord[]; count: number } | undefined)?.count || 0) / perPage)))} onClick={() => setPage((p) => p + 1)}>Next</Button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Booking Details</DialogTitle>
+            <DialogDescription>
+              Full booking information
+            </DialogDescription>
+          </DialogHeader>
+          {(() => {
+            const rec = (bookingsQuery.data?.rows || []).find((b: any) => b.id === selectedBookingId) as BookingRecord | undefined
+            if (!rec) return null
+            const suite = suitesMap.get(rec.suite_id)
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><CheckCircle className="h-4 w-4" /> Overview</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="flex justify-between"><span>Status</span><span>{rec.status}</span></div>
+                    <div className="flex justify-between"><span>Suite</span><span>{suite?.name || rec.suite_id}</span></div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><User className="h-4 w-4" /> Guest</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="flex justify-between"><span>Name</span><span className="flex items-center gap-2">{rec.customer_name}</span></div>
+                    <div className="flex justify-between"><span className="flex items-center gap-2"><Mail className="h-4 w-4" /> Email</span><span className="flex items-center gap-2">{rec.customer_email}<CopyButton text={rec.customer_email} /></span></div>
+                    <div className="flex justify-between"><span className="flex items-center gap-2"><Phone className="h-4 w-4" /> Phone</span><span className="flex items-center gap-2">{rec.customer_phone}<CopyButton text={rec.customer_phone} /></span></div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><CalendarIconLucide className="h-4 w-4" /> Stay</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="flex justify-between"><span>Check-in</span><span>{format(new Date(rec.check_in), 'MMM dd, yyyy')}</span></div>
+                    <div className="flex justify-between"><span>Check-out</span><span>{format(new Date(rec.check_out), 'MMM dd, yyyy')}</span></div>
+                    <div className="flex justify-between"><span>Guests</span><span>{rec.guest_count}</span></div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><MapPin className="h-4 w-4" /> Billing</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="flex justify-between"><span>Address</span><span>{rec.billing_address || '-'}</span></div>
+                    <div className="flex justify-between"><span>City</span><span>{rec.billing_city || '-'}</span></div>
+                    <div className="flex justify-between"><span>Region</span><span>{rec.billing_state || '-'}</span></div>
+                    <div className="flex justify-between"><span>Postal Code</span><span>{rec.billing_zip || '-'}</span></div>
+                    <div className="flex justify-between"><span>Country</span><span>{rec.billing_country || '-'}</span></div>
+                  </CardContent>
+                </Card>
+                <Card className="md:col-span-2">
+                  
+                  <CardContent className="flex items-center justify-between text-lg font-bold">
+                    <span className=''>Total Amount</span>
+                    <span>GHS {rec.total_amount.toFixed(2)}</span>
+                  </CardContent>
+                </Card>
+                {rec.status === 'pending' ? (
+                  <div className="md:col-span-2 flex justify-end">
+                    <Button onClick={() => updateStatus.mutate({ id: rec.id, status: 'confirmed' }, { onSuccess: () => { toast.success('Booking approved'); setShowDetailsDialog(false); bookingsQuery.refetch() } })}>
+                      Approve Booking
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

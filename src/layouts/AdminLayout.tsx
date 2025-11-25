@@ -22,6 +22,7 @@ import {
   LogOut,
   Settings,
   Bell,
+  ListChecks,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -35,6 +36,7 @@ const navigation = [
   { name: 'Bookings', key: 'bookings', icon: Calendar },
   { name: 'Suites', key: 'suites', icon: Building2 },
   { name: 'Customers', key: 'customers', icon: Users },
+  { name: 'Amenities', key: 'amenities', icon: ListChecks },
   { name: 'Users', key: 'users', icon: UserCog },
   { name: 'Profile', key: 'profile', icon: User },
 ];

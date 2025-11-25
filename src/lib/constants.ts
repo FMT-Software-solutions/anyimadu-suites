@@ -46,7 +46,7 @@ const defaultAmenities: Amenity[] = [
 
 export const allSuites: Suite[] = [
   {
-    id: 1,
+    id: '1',
     name: 'Royal Paradise Suite',
     description:
       'Our flagship suite featuring panoramic views, a private balcony, and opulent furnishings. Perfect for those seeking the ultimate luxury experience.',
@@ -74,7 +74,7 @@ export const allSuites: Suite[] = [
     ],
   },
   {
-    id: 2,
+    id: '2',
     name: 'Garden View Suite',
     description:
       'Wake up to stunning garden views and enjoy the serenity of nature from your private terrace. Ideal for nature lovers and peaceful retreats.',
@@ -99,7 +99,7 @@ export const allSuites: Suite[] = [
     ],
   },
   {
-    id: 3,
+    id: '3',
     name: 'Executive Suite',
     description:
       'Sophisticated and spacious, perfect for business travelers or extended stays. Features a dedicated workspace and modern amenities.',
@@ -125,7 +125,7 @@ export const allSuites: Suite[] = [
     ],
   },
   {
-    id: 4,
+    id: '4',
     name: 'Presidential Suite',
     description:
       'The epitome of luxury with separate living and dining areas, a premium entertainment system, and exclusive concierge service.',
@@ -154,7 +154,7 @@ export const allSuites: Suite[] = [
     ],
   },
   {
-    id: 5,
+    id: '5',
     name: 'Deluxe Suite',
     description:
       'Elegantly designed with contemporary décor and thoughtful amenities. An excellent choice for couples and small families.',

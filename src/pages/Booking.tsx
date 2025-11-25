@@ -3,21 +3,17 @@ import { useParams, useLocation, useNavigate, useSearchParams } from 'react-rout
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { format } from 'date-fns';
-import { CalendarIcon, ArrowLeft, Lock, CreditCard } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { ArrowLeft, Lock, CreditCard } from 'lucide-react';
 import { type Suite } from '@/lib/types';
-import { allSuites } from '@/lib/constants';
-import { CountrySelector } from '@/components/CountrySelector';
+import { useCreateBooking } from '@/lib/queries/bookings';
+import { validateSearch, guestInfoErrors, billingAddressErrors } from '@/lib/bookingValidation';
+import { useSuites, type SuiteWithRelations } from '@/lib/queries/suites';
+import { useMemo } from 'react';
+import { getAmenityIcon } from '@/lib/amenityIcons';
+import { GuestInfoSection } from '@/components/booking/GuestInfoSection';
+import { StayDetailsSection } from '@/components/booking/StayDetailsSection';
+import { BillingAddressSection } from '@/components/booking/BillingAddressSection';
+import { BookingSummary } from '@/components/booking/BookingSummary';
 
 interface BookingFormData {
   fullName: string;
@@ -46,11 +42,29 @@ export default function Booking() {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { data: suites } = useSuites();
   
-  // Try to get suite from navigation state first, then fallback to finding by ID
-  const suite: Suite | null = location.state?.suite || 
-    (suiteId ? allSuites.find(s => s.id === parseInt(suiteId)) : null) || 
-    null;
+  const mapSuite = (row: SuiteWithRelations): Suite => ({
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    image: row.main_image_url ?? '',
+    price: row.price,
+    capacity: row.capacity,
+    gallery: row.gallery_urls ?? [],
+    amenities: row.amenities.map((a) => ({
+      icon: getAmenityIcon(a.icon_key ?? null),
+      label: a.name,
+    })),
+  });
+
+  const clientSuites = useMemo(() => (suites ?? []).map(mapSuite), [suites]);
+  const suiteFromState = location.state?.suite as Suite | undefined;
+  const suiteFromId = useMemo(() => {
+    if (!suiteId) return null;
+    return clientSuites.find((s) => String(s.id) === suiteId) || null;
+  }, [suiteId, clientSuites]);
+  const suite: Suite | null = suiteFromState || suiteFromId || null;
   
   const [formData, setFormData] = useState<BookingFormData>({
     fullName: '',
@@ -71,12 +85,29 @@ export default function Booking() {
   });
 
   const [showSuccess, setShowSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const createBooking = useCreateBooking();
+  const [guestErrors, setGuestErrors] = useState<{ fullName?: string; email?: string; phone?: string }>({});
+  const [billingErrors, setBillingErrors] = useState<{ billingAddress?: string; billingCity?: string; billingState?: string; billingCountry?: string }>({});
 
   useEffect(() => {
-    if (!suite) {
+    const ciParam = searchParams.get('checkIn');
+    const coParam = searchParams.get('checkOut');
+    const guestsParam = searchParams.get('guests');
+    const ci = ciParam ? new Date(ciParam) : null;
+    const co = coParam ? new Date(coParam) : null;
+    const guestsNum = guestsParam ? parseInt(guestsParam, 10) : 0;
+    const err = validateSearch(ci, co, guestsNum);
+    if (err) {
       navigate('/suites');
     }
-  }, [suite, navigate]);
+  }, [searchParams, navigate]);
+
+  useEffect(() => {
+    if (suites && !suite) {
+      navigate('/suites');
+    }
+  }, [suites, suite, navigate]);
 
   const calculateNights = () => {
     if (formData.checkIn && formData.checkOut) {
@@ -86,16 +117,53 @@ export default function Booking() {
     return 1;
   };
 
-  const calculateTotal = () => {
-    if (!suite) return 0;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!suite) return;
+    const guests = parseInt(formData.guests, 10) || 1;
+    const err = validateSearch(formData.checkIn || null, formData.checkOut || null, guests);
+    if (err) {
+      setError(err);
+      return;
+    }
+    const gErrs = guestInfoErrors({ fullName: formData.fullName, email: formData.email, phone: formData.phone });
+    if (gErrs.fullName || gErrs.email || gErrs.phone) {
+      setGuestErrors(gErrs);
+      setError(gErrs.fullName || gErrs.email || gErrs.phone || 'Please correct guest information.');
+      return;
+    }
+    const bErrs = billingAddressErrors({
+      billingAddress: formData.billingAddress,
+      billingCity: formData.billingCity,
+      billingState: formData.billingState,
+      billingCountry: formData.billingCountry,
+    });
+    if (bErrs.billingAddress || bErrs.billingCity || bErrs.billingState || bErrs.billingCountry) {
+      setBillingErrors(bErrs);
+      setError(bErrs.billingAddress || bErrs.billingCity || bErrs.billingState || bErrs.billingCountry || 'Please correct billing address.');
+      return;
+    }
+    setGuestErrors({});
+    setBillingErrors({});
+    setError(null);
     const nights = calculateNights();
     const subtotal = suite.price * nights;
-    const tax = subtotal * 0.15; // 15% tax
-    return subtotal + tax;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+    await createBooking.mutateAsync({
+      suite_id: suite.id,
+      customer_name: formData.fullName,
+      customer_email: formData.email,
+      customer_phone: formData.phone,
+      check_in: formData.checkIn!,
+      check_out: formData.checkOut!,
+      guest_count: guests,
+      total_amount: Number(subtotal.toFixed(2)),
+      billing_address: formData.billingAddress,
+      billing_city: formData.billingCity,
+      billing_state: formData.billingState,
+      billing_zip: formData.billingZip,
+      billing_country: formData.billingCountry,
+    });
     setShowSuccess(true);
     setTimeout(() => {
       navigate('/');
@@ -165,180 +233,33 @@ export default function Booking() {
           {/* Booking Form */}
           <div className="lg:col-span-2">
             <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Guest Information */}
-              <div className="bg-white p-6 rounded-lg shadow-sm">
-                <h2 className="text-xl font-semibold mb-4">Guest Information</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="fullName">Full Name *</Label>
-                    <Input
-                      id="fullName"
-                      required
-                      value={formData.fullName}
-                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                      placeholder="John Doe"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      required
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="john@example.com"
-                    />
-                  </div>
-                </div>
-                <div className="mt-4 space-y-2">
-                  <Label htmlFor="phone">Phone Number *</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    required
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+233 XX XXX XXXX"
-                  />
-                </div>
-              </div>
+              <GuestInfoSection
+                values={{ fullName: formData.fullName, email: formData.email, phone: formData.phone }}
+                onChange={(next) => setFormData((prev) => ({ ...prev, ...next }))}
+                errors={guestErrors}
+              />
 
-              {/* Stay Details */}
-              <div className="bg-white p-6 rounded-lg shadow-sm">
-                <h2 className="text-xl font-semibold mb-4">Stay Details</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Check-in Date *</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            'w-full justify-start text-left font-normal',
-                            !formData.checkIn && 'text-muted-foreground'
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formData.checkIn ? format(formData.checkIn, 'PPP') : <span>Pick a date</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={formData.checkIn}
-                          onSelect={(date) => setFormData({ ...formData, checkIn: date })}
-                          disabled={(date) => date < new Date()}
-                          autoFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
+              <StayDetailsSection
+                checkIn={formData.checkIn}
+                checkOut={formData.checkOut}
+                guests={formData.guests}
+                onCheckIn={() => {}}
+                onCheckOut={() => {}}
+                onGuests={() => {}}
+                readOnly
+              />
 
-                  <div className="space-y-2">
-                    <Label>Check-out Date *</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            'w-full justify-start text-left font-normal',
-                            !formData.checkOut && 'text-muted-foreground'
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formData.checkOut ? format(formData.checkOut, 'PPP') : <span>Pick a date</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={formData.checkOut}
-                          onSelect={(date) => setFormData({ ...formData, checkOut: date })}
-                          disabled={(date) => date < (formData.checkIn || new Date())}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="guests">Number of Guests *</Label>
-                    <Select
-                      value={formData.guests}
-                      onValueChange={(value) => setFormData({ ...formData, guests: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1 Guest</SelectItem>
-                        <SelectItem value="2">2 Guests</SelectItem>
-                        <SelectItem value="3">3 Guests</SelectItem>
-                        <SelectItem value="4">4 Guests</SelectItem>
-                        <SelectItem value="5">5+ Guests</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Billing Address */}
-              <div className="bg-white p-6 rounded-lg shadow-sm">
-                <h2 className="text-xl font-semibold mb-4">Billing Address</h2>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="billingAddress">Street Address *</Label>
-                    <Input
-                      id="billingAddress"
-                      required
-                      value={formData.billingAddress}
-                      onChange={(e) => setFormData({ ...formData, billingAddress: e.target.value })}
-                      placeholder="123 Main Street"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="billingCity">City *</Label>
-                      <Input
-                        id="billingCity"
-                        required
-                        value={formData.billingCity}
-                        onChange={(e) => setFormData({ ...formData, billingCity: e.target.value })}
-                        placeholder="Accra"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="billingState">State/Region *</Label>
-                      <Input
-                        id="billingState"
-                        required
-                        value={formData.billingState}
-                        onChange={(e) => setFormData({ ...formData, billingState: e.target.value })}
-                        placeholder="Greater Accra"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="billingZip">Postal Code</Label>
-                      <Input
-                        id="billingZip"
-                        value={formData.billingZip}
-                        onChange={(e) => setFormData({ ...formData, billingZip: e.target.value })}
-                        placeholder="00233"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="billingCountry">Country *</Label>
-                      <CountrySelector
-                        value={formData.billingCountry}
-                        onValueChange={(value) => setFormData({ ...formData, billingCountry: value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <BillingAddressSection
+                values={{
+                  billingAddress: formData.billingAddress,
+                  billingCity: formData.billingCity,
+                  billingState: formData.billingState,
+                  billingZip: formData.billingZip,
+                  billingCountry: formData.billingCountry,
+                }}
+                onChange={(next) => setFormData((prev) => ({ ...prev, ...next }))}
+                errors={billingErrors}
+              />
 
               {/* Payment Details */}
               <div className="bg-white p-6 rounded-lg shadow-sm">
@@ -408,74 +329,19 @@ export default function Booking() {
               >
                 Complete Reservation
               </Button>
+              {error ? (
+                <div className="text-red-600 text-sm mt-2">{error}</div>
+              ) : null}
             </form>
           </div>
 
-          {/* Booking Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-white p-6 rounded-lg shadow-sm sticky top-4">
-              <h2 className="text-xl font-semibold mb-4">Booking Summary</h2>
-              
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <img
-                    src={suite.image}
-                    alt={suite.name}
-                    className="w-16 h-16 object-cover rounded"
-                  />
-                  <div>
-                    <h3 className="font-semibold">{suite.name}</h3>
-                    <p className="text-sm text-gray-600">Up to {suite.capacity} guests</p>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Check-in:</span>
-                    <span>{formData.checkIn ? format(formData.checkIn, 'MMM dd, yyyy') : 'Not selected'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Check-out:</span>
-                    <span>{formData.checkOut ? format(formData.checkOut, 'MMM dd, yyyy') : 'Not selected'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Guests:</span>
-                    <span>{formData.guests}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Nights:</span>
-                    <span>{calculateNights()}</span>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4 space-y-2">
-                  <div className="flex justify-between">
-                    <span>GHS {suite.price} × {calculateNights()} nights</span>
-                    <span>GHS {(suite.price * calculateNights()).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>Taxes & fees</span>
-                    <span>GHS {(suite.price * calculateNights() * 0.15).toFixed(2)}</span>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <div className="flex justify-between text-lg font-semibold">
-                    <span>Total</span>
-                    <span>GHS {calculateTotal().toFixed(2)}</span>
-                  </div>
-                </div>
-
-                <div className="mt-4 p-3 bg-green-50 rounded-lg">
-                  <div className="flex items-center text-green-700">
-                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <span className="text-sm font-medium">This is today's low rate!</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <BookingSummary
+              suite={suite}
+              checkIn={formData.checkIn}
+              checkOut={formData.checkOut}
+              guests={formData.guests}
+            />
           </div>
         </div>
       </div>

@@ -32,6 +32,11 @@ export default function Home() {
   const carouselImages = [
     {
       src:
+        'https://res.cloudinary.com/dkolqpqf2/image/upload/v1763996980/IMG-as_ew7hwe.png',
+      alt: 'Natural surroundings',
+    },
+    {
+      src:
         'https://res.cloudinary.com/deptmmxdn/image/upload/v1761680846/IMG-20251028-WA0004_upscayl_3x_ultramix-balanced-4x_campic.png',
       alt: 'Luxury suite interior',
     },
@@ -40,11 +45,7 @@ export default function Home() {
         'https://res.cloudinary.com/deptmmxdn/image/upload/v1761680886/IMG-20251028-WA0003-4x_xswarv.png',
       alt: 'Scenic views from suite',
     },
-    {
-      src:
-        'https://res.cloudinary.com/deptmmxdn/image/upload/v1761688206/IMG-20251028-WA0010_p9cpyw.jpg',
-      alt: 'Natural surroundings',
-    },
+
     {
       src:
         'https://res.cloudinary.com/deptmmxdn/image/upload/v1761680846/IMG-20251028-WA0004_upscayl_3x_ultramix-balanced-4x_campic.png',
@@ -127,7 +128,7 @@ export default function Home() {
           className="absolute inset-0 z-0"
           style={{
             backgroundImage:
-              'url(https://res.cloudinary.com/deptmmxdn/image/upload/v1761680886/IMG-20251028-WA0003-4x_xswarv.png)',
+              'url(https://res.cloudinary.com/dkolqpqf2/image/upload/v1763994863/ChatGPT_Image_Nov_24_2025_02_34_07_PM_n6kttn.png)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
@@ -214,7 +215,7 @@ export default function Home() {
               <Carousel
                 plugins={[
                   Autoplay({
-                    delay: 4000,
+                    delay: 6000,
                   }),
                 ]}
                 className="w-full h-full"

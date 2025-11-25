@@ -13,6 +13,7 @@ import { CalendarIcon, Search, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { validateSearch } from '@/lib/bookingValidation';
 
 interface SearchSuitesFormProps {
   onSearch?: (
@@ -41,15 +42,22 @@ export function SearchSuitesForm({
   const [checkOut, setCheckOut] = useState<Date | null>(initialCheckOut);
   const [guests, setGuests] = useState<number>(initialGuests);
   const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
 
   // Update state when initial values change (for URL params)
   useEffect(() => {
     setCheckIn(initialCheckIn);
     setCheckOut(initialCheckOut);
     setGuests(initialGuests);
+    setError(null);
   }, [initialCheckIn, initialCheckOut, initialGuests]);
 
   const handleSearch = () => {
+    const err = validateSearch(checkIn, checkOut, guests);
+    if (err) {
+      setError(err);
+      return;
+    }
     if (navigateOnSearch) {
       // Navigate to Suites page with dates and guests as URL params
       const params = new URLSearchParams();
@@ -181,6 +189,9 @@ export function SearchSuitesForm({
             <Search className="mr-2 h-4 w-4" />
             {navigateOnSearch ? 'Find Suites' : 'Search'}
           </Button>
+          {error ? (
+            <div className="text-red-600 text-sm">{error}</div>
+          ) : null}
         </div>
       </div>
     </div>
