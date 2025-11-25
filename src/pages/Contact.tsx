@@ -6,8 +6,16 @@ import { Label } from '../components/ui/label';
 import { Mail, Phone, MapPin, Clock } from 'lucide-react';
 import { useState } from 'react';
 import { CountrySelector } from '../components/CountrySelector';
+import { useSEO } from '@/lib/seo';
 
 export default function Contact() {
+  useSEO({
+    title: 'Contact Anyimadu Suites — We’re here to help',
+    description: 'Get in touch with Anyimadu Suites for reservations, directions, and inquiries. Available 24/7.',
+    keywords: ['contact', 'Anyimadu Suites', 'directions', 'phone', 'email'],
+    image: 'https://res.cloudinary.com/dkolqpqf2/image/upload/v1764083597/Screenshot_2025-11-25_151158_mrhzxy.png',
+    type: 'website',
+  });
   const [formData, setFormData] = useState({
     name: '',
     email: '',

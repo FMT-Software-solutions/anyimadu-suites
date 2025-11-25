@@ -8,10 +8,18 @@ import { Users } from '@/components/admin/Users';
 import { Amenities } from '@/components/admin/Amenities';
 import { Profile } from '@/components/admin/Profile';
 import { useSearchParams } from 'react-router-dom';
+import { useSEO } from '@/lib/seo';
 
 export const AdminPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  useSEO({
+    title: 'Admin — Anyimadu Suites',
+    description: 'Administration panel for Anyimadu Suites.',
+    image: 'https://res.cloudinary.com/dkolqpqf2/image/upload/v1764083597/Screenshot_2025-11-25_151158_mrhzxy.png',
+    robots: 'noindex, nofollow',
+  });
 
   useEffect(() => {
     const tab = searchParams.get('tab') || 'dashboard';

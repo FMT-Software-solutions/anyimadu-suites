@@ -8,8 +8,23 @@ import { type Suite } from '@/lib/types';
 import { getAmenityIcon } from '@/lib/amenityIcons';
 import { supabase } from '@/lib/supabase';
 import { validateSearch, toISODate } from '@/lib/bookingValidation';
+import { useSEO } from '@/lib/seo';
 
 export default function Suites() {
+  useSEO({
+    title: 'Browse Suites — Real-time availability | Anyimadu Suites',
+    description: 'Explore spacious suites and check real-time availability. Book your stay at Anyimadu Suites and enjoy organic comfort in nature.',
+    keywords: ['suite availability', 'book suites', 'Anyimadu Suites', 'Ghana hotel'],
+    image: 'https://res.cloudinary.com/dkolqpqf2/image/upload/v1764083597/Screenshot_2025-11-25_151158_mrhzxy.png',
+    type: 'website',
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'OfferCatalog',
+      name: 'Anyimadu Suites — Availability',
+      url: typeof window !== 'undefined' ? window.location.href : 'https://anyimadu-suites.example/suites',
+      itemListElement: [],
+    },
+  });
   const { data: suites, isLoading, isError } = useSuites();
   const [filteredSuites, setFilteredSuites] = useState<Suite[]>([]);
   const [hasSearched, setHasSearched] = useState(false);

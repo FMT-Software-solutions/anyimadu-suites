@@ -14,6 +14,7 @@ import { GuestInfoSection } from '@/components/booking/GuestInfoSection';
 import { StayDetailsSection } from '@/components/booking/StayDetailsSection';
 import { BillingAddressSection } from '@/components/booking/BillingAddressSection';
 import { BookingSummary } from '@/components/booking/BookingSummary';
+import { useSEO } from '@/lib/seo';
 
 interface BookingFormData {
   fullName: string;
@@ -65,6 +66,13 @@ export default function Booking() {
     return clientSuites.find((s) => String(s.id) === suiteId) || null;
   }, [suiteId, clientSuites]);
   const suite: Suite | null = suiteFromState || suiteFromId || null;
+  useSEO({
+    title: suite ? `Book ${suite.name} | Anyimadu Suites` : 'Complete your booking | Anyimadu Suites',
+    description: 'Secure your reservation at Anyimadu Suites. Enter guest details and confirm your stay.',
+    image: 'https://res.cloudinary.com/dkolqpqf2/image/upload/v1764083597/Screenshot_2025-11-25_151158_mrhzxy.png',
+    type: 'website',
+    robots: 'noindex, nofollow',
+  });
   
   const [formData, setFormData] = useState<BookingFormData>({
     fullName: '',

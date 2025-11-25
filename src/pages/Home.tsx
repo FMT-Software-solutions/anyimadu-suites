@@ -1,4 +1,5 @@
 import TestimonialCard from '../components/TestimonialCard';
+import { useSEO } from '@/lib/seo';
 import { SearchSuitesForm } from '../components/SearchSuitesForm';
 import DirectionsComponent from '../components/DirectionsComponent';
 import {
@@ -19,6 +20,42 @@ import {
 } from 'lucide-react';
 
 export default function Home() {
+  useSEO({
+    title: 'Anyimadu Suites — Organic comfort, scenic views, spacious suites',
+    description:
+      'Discover premium relaxation at Anyimadu Suites: organic food, fresh air, natural surroundings, and spacious suites in Ghana.',
+    keywords: [
+      'Anyimadu Suites',
+      'suites',
+      'hotel',
+      'Ghana',
+      'organic food',
+      'fresh air',
+      'nature',
+      'booking',
+    ],
+    image:
+      'https://res.cloudinary.com/dkolqpqf2/image/upload/v1764083597/Screenshot_2025-11-25_151158_mrhzxy.png',
+    type: 'website',
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'Hotel',
+      name: 'Anyimadu Suites',
+      url:
+        typeof window !== 'undefined'
+          ? window.location.origin
+          : 'https://anyimadu-suites.example',
+      image:
+        'https://res.cloudinary.com/dkolqpqf2/image/upload/v1764083597/Screenshot_2025-11-25_151158_mrhzxy.png',
+      address: {
+        '@type': 'PostalAddress',
+        addressCountry: 'GH',
+      },
+      description:
+        'Organic comfort, fresh air, serene surroundings, and spacious suites in Ghana.',
+      telephone: '+233 XX XXX XXXX',
+    },
+  });
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
