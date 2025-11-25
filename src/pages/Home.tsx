@@ -266,7 +266,7 @@ export default function Home() {
                   poster="https://res.cloudinary.com/deptmmxdn/image/upload/v1761734726/b240b5d5-018f-4fd2-a480-73be8b54bc4f.png"
                 >
                   <source
-                    src="https://res.cloudinary.com/deptmmxdn/video/upload/v1761733792/20251023_083412_mymhws.mp4"
+                    src="https://res.cloudinary.com/dkolqpqf2/video/upload/v1764082766/Anyimadu_video_calsja.mp4"
                     type="video/mp4"
                   />
                   Your browser does not support the video tag.
