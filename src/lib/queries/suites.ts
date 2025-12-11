@@ -4,6 +4,7 @@ import type { AmenityRecord, SuiteRecord } from '@/lib/types'
 
 export type SuiteWithRelations = SuiteRecord & {
   amenities: (AmenityRecord & { pivot_id: number })[]
+  created_by?: string | null
 }
 
 const fromSuites = () => supabase.from('suites')
@@ -29,6 +30,7 @@ const mapSuite = (row: any): SuiteWithRelations => {
     created_at: row.created_at,
     updated_at: row.updated_at,
     amenities,
+    created_by: row.created_by
   }
 }
 
@@ -69,6 +71,8 @@ export const useCreateSuite = () => {
       amenityIds?: number[]
       galleryUrls?: string[]
     }) => {
+      const { data: { user } } = await supabase.auth.getUser()
+      
       const { data, error } = await fromSuites()
         .insert({
           name: payload.suite.name,
@@ -77,6 +81,7 @@ export const useCreateSuite = () => {
           capacity: payload.suite.capacity,
           main_image_url: payload.suite.main_image_url,
           gallery_urls: payload.galleryUrls ?? [],
+          created_by: user?.id ?? null
         })
         .select('*')
         .single()
@@ -160,9 +165,14 @@ export const useAmenities = () => {
 export const useCreateAmenity = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: Omit<AmenityRecord, 'id' | 'created_at'>) => {
+    mutationFn: async (payload: Omit<AmenityRecord, 'id' | 'created_at' | 'created_by'>) => {
+      const { data: { user } } = await supabase.auth.getUser()
       const { data, error } = await fromAmenities()
-        .insert({ name: payload.name, icon_key: payload.icon_key ?? null })
+        .insert({ 
+          name: payload.name, 
+          icon_key: payload.icon_key ?? null,
+          created_by: user?.id ?? null
+        })
         .select('*')
         .single()
       if (error) throw error

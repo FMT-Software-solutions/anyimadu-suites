@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,8 @@ import {
   Users as UsersIcon,
 } from 'lucide-react';
 import type { SuiteWithRelations } from '@/lib/queries/suites';
+import { canAccess } from '@/lib/permissions';
+import { supabase } from '@/lib/supabase';
 
 interface Props {
   suites: SuiteWithRelations[];
@@ -31,6 +33,39 @@ export const SuitesGrid: React.FC<Props> = ({
   onEdit,
   onDelete,
 }) => {
+  const [currentUserRole, setCurrentUserRole] = useState<string>('');
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+            setCurrentUserId(user.id);
+            const am: any = user.app_metadata;
+            const um: any = user.user_metadata;
+            const role = am?.role ?? am?.roles?.[0] ?? um?.role ?? 'user';
+            setCurrentUserRole(role);
+        }
+    });
+  }, []);
+
+  const canEdit = (suite: SuiteWithRelations) => {
+    if (canAccess(currentUserRole, 'edit_suite')) {
+        // Editors can only edit their own data
+        if (currentUserRole === 'editor' || currentUserRole === 'sales_rep') {
+            return suite.created_by === currentUserId;
+        }
+        return true; // Admin/Super Admin
+    }
+    return false;
+  };
+
+  const canDelete = (_suite: SuiteWithRelations) => {
+    // "Editors and roles below cannot delete suites. Only admins can delete suites."
+    // So only admin/super_admin can delete suites.
+    if (currentUserRole === 'admin' || currentUserRole === 'super_admin') return true;
+    return false;
+  };
+
   return (
     <div className="grid gap-6 md:grid-cols-3 lg:grid-cols-4">
       {suites.map((suite) => (
@@ -53,10 +88,13 @@ export const SuitesGrid: React.FC<Props> = ({
                     <Eye className="mr-2 h-4 w-4" />
                     View Details
                   </DropdownMenuItem>
+                  {canEdit(suite) && (
                   <DropdownMenuItem onClick={() => onEdit(suite)}>
                     <Edit className="mr-2 h-4 w-4" />
                     Edit Suite
                   </DropdownMenuItem>
+                  )}
+                  {canDelete(suite) && (
                   <DropdownMenuItem
                     className="text-red-600"
                     onClick={() => onDelete(suite.id)}
@@ -64,6 +102,7 @@ export const SuitesGrid: React.FC<Props> = ({
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete Suite
                   </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

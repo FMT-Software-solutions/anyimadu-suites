@@ -26,7 +26,13 @@ export const ProtectedRoute: React.FC<Props> = ({ children }) => {
       const isSpecial = email?.toLowerCase() === SPECIAL_EMAIL;
       setIsSpecialUser(isSpecial);
 
-      const allowed = ['super_admin', 'admin', 'editor', 'sales_rep', 'read'];
+      const allowed = [
+        'super_admin',
+        'admin',
+        'editor',
+        'sales_rep',
+        'read_only',
+      ];
       const am: any = session?.user?.app_metadata;
       const um: any = session?.user?.user_metadata;
       const r = am?.role ?? am?.roles ?? um?.role ?? um?.roles;
@@ -46,7 +52,13 @@ export const ProtectedRoute: React.FC<Props> = ({ children }) => {
       const isSpecial = email?.toLowerCase() === SPECIAL_EMAIL;
       setIsSpecialUser(isSpecial);
 
-      const allowed = ['super_admin', 'admin', 'editor', 'sales_rep', 'read'];
+      const allowed = [
+        'super_admin',
+        'admin',
+        'editor',
+        'sales_rep',
+        'read_only',
+      ];
       const am: any = session?.user?.app_metadata;
       const um: any = session?.user?.user_metadata;
       const r = am?.role ?? am?.roles ?? um?.role ?? um?.roles;

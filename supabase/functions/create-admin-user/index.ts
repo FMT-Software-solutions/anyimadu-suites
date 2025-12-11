@@ -43,12 +43,14 @@ serve(async (req) => {
   try {
     const body = await req.json()
     const email: string = body?.email ?? ""
-    const name: string = body?.name ?? ""
+    const firstName: string = body?.firstName ?? ""
+    const lastName: string = body?.lastName ?? ""
+    const name: string = body?.name ?? `${firstName} ${lastName}`.trim()
     const loginUrl: string = body?.loginUrl ?? ""
     const roleParam: string = String(body?.role ?? "").toLowerCase()
-    const allowedNewRoles = ["admin", "editor", "sales_rep", "read"]
+    const allowedNewRoles = ["admin", "editor", "sales_rep", "read_only"]
     if (!emailRegex.test(email) || name.trim().length < 2 || !allowedNewRoles.includes(roleParam)) {
-      return new Response(JSON.stringify({ error: "Invalid input" }), { status: 400, headers: { ...headers, "Content-Type": "application/json" } })
+      return new Response(JSON.stringify({ error: `Invalid input or role. Allowed roles: ${allowedNewRoles.join(", ")}` }), { status: 400, headers: { ...headers, "Content-Type": "application/json" } })
     }
 
     const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: auth } }, auth: { autoRefreshToken: false, persistSession: false } })
@@ -72,7 +74,7 @@ serve(async (req) => {
       email,
       password: pwd,
       email_confirm: true,
-      user_metadata: { name, first_time_login: true }
+      user_metadata: { name, firstName, lastName, first_time_login: true }
     })
     if (createErr || !created?.user) {
       return new Response(JSON.stringify({ error: createErr?.message ?? "Create failed" }), { status: 400, headers: { ...headers, "Content-Type": "application/json" } })

@@ -86,6 +86,7 @@ export interface AmenityRecord {
   name: string;
   icon_key: string | null;
   created_at: string;
+  created_by?: string | null;
 }
 
 export interface SuiteAmenityRecord {
@@ -114,4 +115,5 @@ export interface BookingRecord {
   billing_state?: string | null;
   billing_zip?: string | null;
   billing_country?: string | null;
+  created_by?: string | null;
 }

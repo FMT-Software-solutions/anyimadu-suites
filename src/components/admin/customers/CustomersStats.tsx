@@ -1,6 +1,7 @@
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Users as UsersIcon, UserCheck, UserX, Calendar } from 'lucide-react'
+import { canAccess } from '@/lib/permissions'
 
 export interface CustomersStatsData {
   total: number
@@ -12,7 +13,7 @@ export interface CustomersStatsData {
   totalBookings: number
 }
 
-export const CustomersStats: React.FC<{ stats: CustomersStatsData }> = ({ stats }) => {
+export const CustomersStats: React.FC<{ stats: CustomersStatsData; role?: string }> = ({ stats, role = 'read_only' }) => {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card>
@@ -41,6 +42,7 @@ export const CustomersStats: React.FC<{ stats: CustomersStatsData }> = ({ stats 
         </CardContent>
       </Card>
 
+      {canAccess(role, 'view_revenue') && (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
@@ -51,7 +53,9 @@ export const CustomersStats: React.FC<{ stats: CustomersStatsData }> = ({ stats 
           <p className="text-xs text-muted-foreground">From {stats.totalBookings} bookings</p>
         </CardContent>
       </Card>
+      )}
 
+      {canAccess(role, 'view_revenue') && (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Average Spent</CardTitle>
@@ -62,6 +66,7 @@ export const CustomersStats: React.FC<{ stats: CustomersStatsData }> = ({ stats 
           <p className="text-xs text-muted-foreground">Per customer</p>
         </CardContent>
       </Card>
+      )}
     </div>
   )
 }

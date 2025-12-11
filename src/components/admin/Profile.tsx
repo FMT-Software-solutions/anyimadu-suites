@@ -14,11 +14,13 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Camera,
-  Crown,
   Shield,
-  ShieldCheck,
+  ShieldAlert,
   Loader2,
   Save,
+  Pencil,
+  User as UserIcon,
+  Eye
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -53,9 +55,13 @@ export const Profile = () => {
       setUser(user);
       if (user) {
         const meta = user.user_metadata || {};
+        const nameParts = (meta.name || '').split(' ');
+        const fallbackFirst = nameParts[0] || '';
+        const fallbackLast = nameParts.slice(1).join(' ') || '';
+        
         setProfileData({
-          firstName: meta.firstName || '',
-          lastName: meta.lastName || '',
+          firstName: meta.firstName || fallbackFirst,
+          lastName: meta.lastName || fallbackLast,
           email: user.email || '',
           phone: meta.phone || '',
           about: meta.about || meta.bio || '',
@@ -154,25 +160,38 @@ export const Profile = () => {
     
     switch (userRole) {
       case 'super_admin':
-      case 'admin':
         return (
           <Badge className="bg-red-500 hover:bg-red-600">
-            <Crown className="mr-1 h-3 w-3" />
+            <ShieldAlert className="mr-1 h-3 w-3" />
             Super Admin
           </Badge>
         );
-      case 'manager':
+      case 'admin':
         return (
           <Badge className="bg-blue-500 hover:bg-blue-600">
-            <ShieldCheck className="mr-1 h-3 w-3" />
-            Manager
+            <Shield className="mr-1 h-3 w-3" />
+            Admin
           </Badge>
         );
-      case 'staff':
+      case 'editor':
         return (
-          <Badge variant="secondary">
-            <Shield className="mr-1 h-3 w-3" />
-            Staff
+          <Badge variant="secondary" className="bg-orange-500 text-white hover:bg-orange-600">
+            <Pencil className="mr-1 h-3 w-3" />
+            Editor
+          </Badge>
+        );
+      case 'sales_rep':
+        return (
+          <Badge variant="secondary" className="bg-green-500 text-white hover:bg-green-600">
+            <UserIcon className="mr-1 h-3 w-3" />
+            Sales Rep
+          </Badge>
+        );
+      case 'read_only':
+        return (
+          <Badge variant="outline">
+            <Eye className="mr-1 h-3 w-3" />
+            Read Only
           </Badge>
         );
       default:

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import { useSuites, useCreateSuite, useUpdateSuite, useDeleteSuite, type SuiteWithRelations } from '@/lib/queries/suites'
@@ -7,12 +7,27 @@ import { SuitesGrid } from '@/components/admin/suites/SuitesGrid'
 import { SuitesStats } from '@/components/admin/suites/SuitesStats'
 import { SuiteDialog } from '@/components/admin/suites/SuiteDialog'
 import { DeleteConfirmDialog } from '@/components/admin/suites/DeleteConfirmDialog'
+import { canAccess } from '@/lib/permissions'
+import { supabase } from '@/lib/supabase'
 
 export const Suites = () => {
   const { data: suitesData } = useSuites()
   const createSuite = useCreateSuite()
   const updateSuite = useUpdateSuite()
   const deleteSuite = useDeleteSuite()
+  
+  const [currentUserRole, setCurrentUserRole] = useState<string>('');
+  
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+            const am: any = user.app_metadata;
+            const um: any = user.user_metadata;
+            const role = am?.role ?? am?.roles?.[0] ?? um?.role ?? 'user';
+            setCurrentUserRole(role);
+        }
+    });
+  }, []);
 
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
@@ -88,10 +103,12 @@ export const Suites = () => {
             Manage your suite inventory and details.
           </p>
         </div>
+        {canAccess(currentUserRole, 'create_suite') && (
         <Button onClick={() => setShowCreateDialog(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Add Suite
         </Button>
+        )}
         <SuiteDialog
           mode="create"
           open={showCreateDialog}

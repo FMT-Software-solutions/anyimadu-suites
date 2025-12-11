@@ -24,6 +24,9 @@ export const useCreateBooking = () => {
     mutationFn: async (payload: CreateBookingPayload) => {
       const err = validateSearch(payload.check_in, payload.check_out, payload.guest_count)
       if (err) throw new Error(err)
+      
+      const { data: { user } } = await supabase.auth.getUser()
+      
       const { error } = await supabase.from('bookings').insert({
         suite_id: payload.suite_id,
         customer_name: payload.customer_name,
@@ -39,6 +42,7 @@ export const useCreateBooking = () => {
         billing_state: payload.billing_state ?? null,
         billing_zip: payload.billing_zip ?? null,
         billing_country: payload.billing_country ?? null,
+        created_by: user?.id ?? null
       })
       if (error) throw error
     },
@@ -141,6 +145,64 @@ export const checkSuiteAvailability = async (
   if (error) throw error
   const ids = Array.isArray(data) ? data.map((r: any) => r.id ?? r) : []
   return ids.includes(suiteId)
+}
+
+export const checkBookingOverlap = async (
+  suiteId: string,
+  checkIn: Date,
+  checkOut: Date,
+  excludeBookingId?: string
+) => {
+  const ci = toISODate(checkIn)
+  const co = toISODate(checkOut)
+  
+  let q = supabase.from('bookings')
+    .select('id', { count: 'exact', head: true })
+    .eq('suite_id', suiteId)
+    .in('status', ['pending', 'confirmed', 'completed'])
+    .lt('check_in', co)
+    .gt('check_out', ci)
+
+  if (excludeBookingId) {
+    q = q.neq('id', excludeBookingId)
+  }
+  
+  const { count, error } = await q
+  if (error) throw error
+  return (count || 0) > 0 // Returns true if there IS an overlap
+}
+
+export type UpdateBookingPayload = CreateBookingPayload & { id: string }
+
+export const useUpdateBooking = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: UpdateBookingPayload) => {
+       const err = validateSearch(payload.check_in, payload.check_out, payload.guest_count)
+       if (err) throw new Error(err)
+       
+       const { error } = await supabase.from('bookings').update({
+         suite_id: payload.suite_id,
+         customer_name: payload.customer_name,
+         customer_email: payload.customer_email,
+         customer_phone: payload.customer_phone,
+         check_in: toISODate(payload.check_in),
+         check_out: toISODate(payload.check_out),
+         guest_count: payload.guest_count,
+         total_amount: payload.total_amount,
+         billing_address: payload.billing_address ?? null,
+         billing_city: payload.billing_city ?? null,
+         billing_state: payload.billing_state ?? null,
+         billing_zip: payload.billing_zip ?? null,
+         billing_country: payload.billing_country ?? null,
+       }).eq('id', payload.id)
+       
+       if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['bookings'] })
+    },
+  })
 }
 
 export const useUpdateBookingStatus = () => {

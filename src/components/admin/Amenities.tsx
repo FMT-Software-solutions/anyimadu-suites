@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -34,6 +34,9 @@ import {
 import { MoreHorizontal, Edit, Trash2, Plus, Settings2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DeleteConfirmDialog } from '@/components/admin/suites/DeleteConfirmDialog';
+import { canAccess } from '@/lib/permissions';
+import { supabase } from '@/lib/supabase';
+import type { AmenityRecord } from '@/lib/types';
 
 interface AmenityFormValues {
   name: string;
@@ -53,10 +56,41 @@ export const Amenities = () => {
   const [deleteAmenityId, setDeleteAmenityId] = useState<number | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
+  const [currentUserRole, setCurrentUserRole] = useState<string>('');
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setCurrentUserId(user.id);
+        const am: any = user.app_metadata;
+        const um: any = user.user_metadata;
+        const role = am?.role ?? am?.roles?.[0] ?? um?.role ?? 'user';
+        setCurrentUserRole(role);
+      }
+    });
+  }, []);
+
   const [form, setForm] = useState<AmenityFormValues>({
     name: '',
     icon_key: null,
   });
+
+  const checkEditAccess = (amenity: AmenityRecord) => {
+    if (canAccess(currentUserRole, 'edit_amenity')) {
+      // Editors can only edit their own data
+      if (currentUserRole === 'editor') {
+        return amenity.created_by === currentUserId;
+      }
+      return true; // Admin/Super Admin
+    }
+    return false;
+  };
+
+  const checkDeleteAccess = (_amenity: AmenityRecord) => {
+    if (canAccess(currentUserRole, 'delete_amenity')) return true; // Usually just admin/super_admin
+    return false;
+  };
 
   const stats = useMemo(() => {
     const list = amenities || [];
@@ -126,16 +160,21 @@ export const Amenities = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => seedAmenities.mutate(defaultSeedRows)}
-            className="hidden"
-          >
-            <Settings2 className="h-4 w-4 mr-2" /> Seed Defaults
-          </Button>
-          <Button onClick={startCreate}>
-            <Plus className="h-4 w-4 mr-2" /> Add Amenity
-          </Button>
+          {(currentUserRole === 'admin' ||
+            currentUserRole === 'super_admin') && (
+            <Button
+              variant="outline"
+              onClick={() => seedAmenities.mutate(defaultSeedRows)}
+              className="hidden"
+            >
+              <Settings2 className="h-4 w-4 mr-2" /> Seed Defaults
+            </Button>
+          )}
+          {canAccess(currentUserRole, 'create_amenity') && (
+            <Button onClick={startCreate}>
+              <Plus className="h-4 w-4 mr-2" /> Add Amenity
+            </Button>
+          )}
         </div>
       </div>
 
@@ -181,15 +220,19 @@ export const Amenities = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => startEdit(a.id)}>
-                        <Edit className="mr-2 h-4 w-4" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-red-600"
-                        onClick={() => handleDelete(a.id)}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
+                      {checkEditAccess(a) && (
+                        <DropdownMenuItem onClick={() => startEdit(a.id)}>
+                          <Edit className="mr-2 h-4 w-4" /> Edit
+                        </DropdownMenuItem>
+                      )}
+                      {checkDeleteAccess(a) && (
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          onClick={() => handleDelete(a.id)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>

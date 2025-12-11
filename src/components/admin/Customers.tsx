@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CustomersStats } from '@/components/admin/customers/CustomersStats';
@@ -6,9 +6,24 @@ import { CustomersFilters } from '@/components/admin/customers/CustomersFilters'
 import { CustomersTable } from '@/components/admin/customers/CustomersTable';
 import { useCustomers, type DerivedCustomer } from '@/lib/queries/customers';
 import { useDebounce } from '@/lib/hooks';
+import { supabase } from '@/lib/supabase';
+
 export const Customers = () => {
   const { data: customersData } = useCustomers()
   const customers: DerivedCustomer[] = useMemo(() => customersData || [], [customersData])
+  
+  const [currentUserRole, setCurrentUserRole] = useState<string>('');
+  
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+            const am: any = user.app_metadata;
+            const um: any = user.user_metadata;
+            const role = am?.role ?? am?.roles?.[0] ?? um?.role ?? 'user';
+            setCurrentUserRole(role);
+        }
+    });
+  }, []);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -73,7 +88,7 @@ export const Customers = () => {
         </div>
       </div>
 
-      <CustomersStats stats={customerStats} />
+      <CustomersStats stats={customerStats} role={currentUserRole} />
 
       {/* Filters and Search */}
       <Card>

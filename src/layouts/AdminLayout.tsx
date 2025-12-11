@@ -1,5 +1,4 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,7 +12,6 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { supabase } from '@/lib/supabase';
 import { type User as SupabaseUser } from '@supabase/supabase-js';
 import {
-  Bell,
   Building2,
   Calendar,
   LayoutDashboard,
@@ -26,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { canAccess } from '@/lib/permissions';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -74,6 +73,31 @@ export const AdminLayout = ({
     return activeTab === key;
   };
 
+  const getRole = () => {
+    if (!user) return 'user';
+    const am: any = user.app_metadata;
+    const um: any = user.user_metadata;
+    return am?.role ?? am?.roles?.[0] ?? um?.role ?? 'user';
+  };
+
+  const role = getRole();
+
+  const filteredNavigation = navigation.filter(item => {
+    if (item.key === 'users') {
+      return role === 'admin' || role === 'super_admin';
+    }
+    if (item.key === 'suites') {
+      return canAccess(role, 'view_suites');
+    }
+    if (item.key === 'amenities') {
+      return canAccess(role, 'view_amenities');
+    }
+    if (item.key === 'customers') {
+      return canAccess(role, 'view_customers');
+    }
+    return true;
+  });
+
   const getInitials = () => {
     if (!user) return 'AD';
     const meta = user.user_metadata;
@@ -120,7 +144,7 @@ export const AdminLayout = ({
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-4 py-4">
-        {navigation.map((item) => {
+        {filteredNavigation.map((item) => {
           const Icon = item.icon;
           return (
             <button
@@ -202,12 +226,12 @@ export const AdminLayout = ({
 
           <div className="flex items-center space-x-4">
             {/* Notifications */}
-            <Button variant="ghost" size="icon" className="relative">
+            {/* <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
               <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs">
                 3
               </Badge>
-            </Button>
+            </Button> */}
 
             {/* User Menu */}
             <DropdownMenu>

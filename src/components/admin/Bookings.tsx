@@ -29,8 +29,8 @@ import {
 } from '@/components/ui/select';
 import { useSuites, type SuiteWithRelations } from '@/lib/queries/suites';
 import { type BookingRecord } from '@/lib/types';
-import { useBookings, useCreateBooking, checkSuiteAvailability, useUpdateBookingStatus } from '@/lib/queries/bookings';
-import { useMemo, useState } from 'react';
+import { useBookings, useCreateBooking, useUpdateBooking, checkSuiteAvailability, checkBookingOverlap, useUpdateBookingStatus } from '@/lib/queries/bookings';
+import { useMemo, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { CopyButton } from '@/components/CopyButton';
@@ -69,6 +69,9 @@ type UIBooking = {
   billingState?: string | null
   billingCountry?: string | null
   nights: number
+  createdBy: string | null
+  canApprove: boolean
+  isOwner: boolean
 }
 
 interface BookingFormData {
@@ -86,6 +89,9 @@ interface BookingFormData {
   billingCountry: string;
 }
 
+import { supabase } from '@/lib/supabase';
+import { canAccess } from '@/lib/permissions';
+
 export const Bookings = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'pending' | 'confirmed' | 'cancelled' | 'completed' | 'all'>('all')
@@ -97,6 +103,22 @@ export const Bookings = () => {
   const debouncedSearch = useDebounce(searchTerm, 1000)
   const bookingsQuery = useBookings(page, perPage, { search: debouncedSearch, status: statusFilter, dateRange: dateFilter, suiteId: suiteFilter !== 'all' ? suiteFilter : undefined })
   const { data: suites } = useSuites()
+  
+  const [currentUserRole, setCurrentUserRole] = useState<string>('');
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+            const am: any = user.app_metadata;
+            const um: any = user.user_metadata;
+            const role = (am?.role ?? am?.roles?.[0] ?? um?.role ?? 'user').trim();
+            setCurrentUserRole(role);
+            setCurrentUserId(user.id);
+        }
+    });
+  }, []);
+
   const suitesMap = useMemo(() => {
     const map = new Map<string, SuiteWithRelations>()
     ;(suites || []).forEach((s) => map.set(s.id, s))
@@ -116,18 +138,26 @@ export const Bookings = () => {
     billingCountry: '',
   });
   const [createError, setCreateError] = useState<string | null>(null)
+  const [editingBookingId, setEditingBookingId] = useState<string | null>(null)
   const createBooking = useCreateBooking()
+  const updateBooking = useUpdateBooking()
   const updateStatus = useUpdateBookingStatus()
   const [showDetailsDialog, setShowDetailsDialog] = useState(false)
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null)
 
   const uiRows: UIBooking[] = useMemo(() => {
     const rows: BookingRecord[] = (bookingsQuery.data?.rows ?? []) as BookingRecord[]
+
     return rows.map((b: BookingRecord) => {
       const suite = suitesMap.get(b.suite_id)
       const ci = new Date(b.check_in)
       const co = new Date(b.check_out)
       const nights = Math.max(1, Math.ceil(Math.abs(co.getTime() - ci.getTime()) / (1000 * 60 * 60 * 24)))
+      
+      const isOwner = b.created_by === currentUserId;
+      const canEdit = canAccess(currentUserRole, 'edit_booking');
+      const canApprove = canEdit && b.status === 'pending' && (currentUserRole !== 'sales_rep' || isOwner);
+
       return {
         id: b.id,
         suiteName: suite?.name || 'Unknown Suite',
@@ -141,9 +171,12 @@ export const Bookings = () => {
         billingState: b.billing_state ?? null,
         billingCountry: b.billing_country ?? null,
         nights,
+        createdBy: b.created_by ?? null,
+        canApprove,
+        isOwner // Expose isOwner to UI for edit button logic
       }
     })
-  }, [bookingsQuery.data, suitesMap])
+  }, [bookingsQuery.data, suitesMap, currentUserRole, currentUserId])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -177,7 +210,52 @@ export const Bookings = () => {
     return subtotal
   }
 
-  const handleCreateBooking = async (e: React.FormEvent) => {
+  const handleEditClick = (booking: UIBooking) => {
+    setEditingBookingId(booking.id)
+    setFormData({
+      suiteId: suitesMap.get(booking.suiteName) ? booking.suiteName : (Array.from(suitesMap.values()).find(s => s.name === booking.suiteName)?.id || ''),
+      // Note: booking.suiteName is actually the name, but formData.suiteId needs ID.
+      // Wait, uiRows maps suiteName. I should look up ID from suiteName or better, include suiteId in uiRows.
+      // Let's fix uiRows first to include suiteId.
+      // Actually uiRows has suiteName. I can find ID by name.
+      customerName: booking.customerName,
+      customerEmail: booking.customerEmail,
+      customerPhone: '', // Not in UIBooking, we might need to fetch or include it in uiRows
+      guests: booking.guests.toString(),
+      billingAddress: '', // Not in UIBooking
+      billingCity: '', // Not in UIBooking
+      billingState: booking.billingState || '',
+      billingZip: '', // Not in UIBooking
+      billingCountry: booking.billingCountry || '',
+      checkIn: new Date(booking.checkIn),
+      checkOut: new Date(booking.checkOut),
+    })
+    
+    // We need full booking details (phone, address, etc).
+    // UIBooking is a subset.
+    // We should get the full record from bookingsQuery.data.rows
+    const fullRecord = (bookingsQuery.data?.rows ?? []).find((r: any) => r.id === booking.id) as BookingRecord | undefined
+    if (fullRecord) {
+        setFormData({
+            suiteId: fullRecord.suite_id,
+            customerName: fullRecord.customer_name,
+            customerEmail: fullRecord.customer_email,
+            customerPhone: fullRecord.customer_phone,
+            guests: fullRecord.guest_count.toString(),
+            billingAddress: fullRecord.billing_address || '',
+            billingCity: fullRecord.billing_city || '',
+            billingState: fullRecord.billing_state || '',
+            billingZip: fullRecord.billing_zip || '',
+            billingCountry: fullRecord.billing_country || '',
+            checkIn: new Date(fullRecord.check_in),
+            checkOut: new Date(fullRecord.check_out),
+        })
+    }
+    
+    setShowCreateDialog(true)
+  }
+
+  const handleSaveBooking = async (e: React.FormEvent) => {
     e.preventDefault()
     setCreateError(null)
     if (!formData.suiteId || !formData.checkIn || !formData.checkOut) {
@@ -190,41 +268,80 @@ export const Bookings = () => {
       setCreateError(`Guest count exceeds suite capacity of ${suite.capacity}.`)
       return
     }
-    const available = await checkSuiteAvailability(formData.suiteId, formData.checkIn, formData.checkOut, guests)
+
+    // Availability check
+    let available = false
+    if (editingBookingId) {
+        // Check overlap excluding current booking
+        const overlap = await checkBookingOverlap(formData.suiteId, formData.checkIn, formData.checkOut, editingBookingId)
+        available = !overlap
+    } else {
+        // Create mode
+        available = await checkSuiteAvailability(formData.suiteId, formData.checkIn, formData.checkOut, guests)
+    }
+
     if (!available) {
       setCreateError('Selected suite is not available for selected dates.')
       return
     }
+    
     const total = calculateTotal()
-    await createBooking.mutateAsync({
-      suite_id: formData.suiteId,
-      customer_name: formData.customerName,
-      customer_email: formData.customerEmail,
-      customer_phone: formData.customerPhone,
-      check_in: formData.checkIn,
-      check_out: formData.checkOut,
-      guest_count: guests,
-      total_amount: Number(total.toFixed(2)),
-      billing_address: formData.billingAddress,
-      billing_city: formData.billingCity,
-      billing_state: formData.billingState,
-      billing_zip: formData.billingZip,
-      billing_country: formData.billingCountry,
-    })
-    setShowCreateDialog(false)
-    setFormData({
-      suiteId: '',
-      customerName: '',
-      customerEmail: '',
-      customerPhone: '',
-      guests: '2',
-      billingAddress: '',
-      billingCity: '',
-      billingState: '',
-      billingZip: '',
-      billingCountry: '',
-    })
-    bookingsQuery.refetch()
+    
+    try {
+        if (editingBookingId) {
+            await updateBooking.mutateAsync({
+                id: editingBookingId,
+                suite_id: formData.suiteId,
+                customer_name: formData.customerName,
+                customer_email: formData.customerEmail,
+                customer_phone: formData.customerPhone,
+                check_in: formData.checkIn,
+                check_out: formData.checkOut,
+                guest_count: guests,
+                total_amount: Number(total.toFixed(2)),
+                billing_address: formData.billingAddress,
+                billing_city: formData.billingCity,
+                billing_state: formData.billingState,
+                billing_zip: formData.billingZip,
+                billing_country: formData.billingCountry,
+            })
+            toast.success('Booking updated successfully')
+        } else {
+            await createBooking.mutateAsync({
+                suite_id: formData.suiteId,
+                customer_name: formData.customerName,
+                customer_email: formData.customerEmail,
+                customer_phone: formData.customerPhone,
+                check_in: formData.checkIn,
+                check_out: formData.checkOut,
+                guest_count: guests,
+                total_amount: Number(total.toFixed(2)),
+                billing_address: formData.billingAddress,
+                billing_city: formData.billingCity,
+                billing_state: formData.billingState,
+                billing_zip: formData.billingZip,
+                billing_country: formData.billingCountry,
+            })
+            toast.success('Booking created successfully')
+        }
+        setShowCreateDialog(false)
+        setEditingBookingId(null)
+        setFormData({
+            suiteId: '',
+            customerName: '',
+            customerEmail: '',
+            customerPhone: '',
+            guests: '2',
+            billingAddress: '',
+            billingCity: '',
+            billingState: '',
+            billingZip: '',
+            billingCountry: '',
+        })
+        bookingsQuery.refetch()
+    } catch (err: any) {
+        setCreateError(err.message || 'An error occurred')
+    }
   }
 
   return (
@@ -238,7 +355,25 @@ export const Bookings = () => {
           </p>
         </div>
         <div className="flex space-x-2">
-          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          {canAccess(currentUserRole, 'create_booking') && (
+          <Dialog open={showCreateDialog} onOpenChange={(open) => {
+            setShowCreateDialog(open)
+            if (!open) {
+                setEditingBookingId(null)
+                setFormData({
+                    suiteId: '',
+                    customerName: '',
+                    customerEmail: '',
+                    customerPhone: '',
+                    guests: '2',
+                    billingAddress: '',
+                    billingCity: '',
+                    billingState: '',
+                    billingZip: '',
+                    billingCountry: '',
+                })
+            }
+          }}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
@@ -247,12 +382,12 @@ export const Bookings = () => {
             </DialogTrigger>
             <DialogContent className="sm:max-w-4xl max-h-[95vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create New Booking</DialogTitle>
+                <DialogTitle>{editingBookingId ? 'Edit Booking' : 'Create New Booking'}</DialogTitle>
                 <DialogDescription>
-                  Add a new booking for a customer.
+                  {editingBookingId ? 'Update booking details.' : 'Add a new booking for a customer.'}
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleCreateBooking} className="space-y-6">
+              <form onSubmit={handleSaveBooking} className="space-y-6">
                 {/* Suite Selection */}
                 <div className="space-y-2">
                   <Label htmlFor="suite">Suite *</Label>
@@ -376,16 +511,21 @@ export const Bookings = () => {
                     <Select
                       value={formData.guests}
                       onValueChange={(value) => setFormData({ ...formData, guests: value })}
+                      disabled={!formData.suiteId}
                     >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder={!formData.suiteId ? "Select a suite first" : "Select guests"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">1 Guest</SelectItem>
-                        <SelectItem value="2">2 Guests</SelectItem>
-                        <SelectItem value="3">3 Guests</SelectItem>
-                        <SelectItem value="4">4 Guests</SelectItem>
-                        <SelectItem value="5">5+ Guests</SelectItem>
+                        {formData.suiteId && suitesMap.get(formData.suiteId) ? (
+                            Array.from({ length: Number(suitesMap.get(formData.suiteId)?.capacity || 0) }, (_, i) => i + 1).map((num) => (
+                                <SelectItem key={num} value={num.toString()}>
+                                    {num} {num === 1 ? 'Guest' : 'Guests'}
+                                </SelectItem>
+                            ))
+                        ) : (
+                            <SelectItem value="1">1 Guest</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -478,11 +618,12 @@ export const Bookings = () => {
                   <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit">Create Booking</Button>
+                  <Button type="submit">{editingBookingId ? 'Update Booking' : 'Create Booking'}</Button>
                 </div>
               </form>
             </DialogContent>
           </Dialog>
+          )}
         </div>
       </div>
 
@@ -521,6 +662,7 @@ export const Bookings = () => {
           </CardContent>
         </Card>
 
+        {canAccess(currentUserRole, 'view_revenue') && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Revenue</CardTitle>
@@ -531,6 +673,7 @@ export const Bookings = () => {
             <p className="text-xs text-muted-foreground">Total revenue</p>
           </CardContent>
         </Card>
+        )}
       </div>
 
       {/* Filters and Search */}
@@ -592,6 +735,12 @@ export const Bookings = () => {
               </SelectContent>
             </Select>
             <ExportBookings filters={{ search: debouncedSearch, status: statusFilter, dateRange: dateFilter, suiteId: suiteFilter !== 'all' ? suiteFilter : undefined }} />
+            {canAccess(currentUserRole, 'create_booking') && (
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Booking
+            </Button>
+            )}
           </div>
 
           {/* Bookings Table */}
@@ -634,14 +783,28 @@ export const Bookings = () => {
                         <Eye className="mr-2 h-4 w-4" />
                         View Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem disabled={booking.status !== 'pending'} onClick={() => updateStatus.mutate({ id: booking.id, status: 'confirmed' }, { onSuccess: () => { toast.success('Booking approved'); bookingsQuery.refetch() } })}>
-                        <Edit className="mr-2 h-4 w-4" />
+                      {/* Edit Booking Details */}
+                      {(currentUserRole === 'admin' || currentUserRole === 'super_admin' || (canAccess(currentUserRole, 'edit_booking') && booking.isOwner)) && (
+                        <DropdownMenuItem onClick={() => handleEditClick(booking)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit Details
+                        </DropdownMenuItem>
+                      )}
+
+                      {/* Approve Booking (Status) */}
+                      {booking.canApprove && (
+                      <DropdownMenuItem onClick={() => updateStatus.mutate({ id: booking.id, status: 'confirmed' }, { onSuccess: () => { toast.success('Booking approved'); bookingsQuery.refetch() } })}>
+                        <CheckCircle className="mr-2 h-4 w-4" />
                         Approve Booking
                       </DropdownMenuItem>
+                      )}
+                      
+                      {canAccess(currentUserRole, 'cancel_booking') && (
                       <DropdownMenuItem className="text-red-600" onClick={() => updateStatus.mutate({ id: booking.id, status: 'cancelled' }, { onSuccess: () => { toast.success('Booking cancelled'); bookingsQuery.refetch() } })}>
                         <Trash2 className="mr-2 h-4 w-4" />
                         Cancel Booking
                       </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -722,7 +885,7 @@ export const Bookings = () => {
                     <span>GHS {rec.total_amount.toFixed(2)}</span>
                   </CardContent>
                 </Card>
-                {rec.status === 'pending' ? (
+                {rec.status === 'pending' && canAccess(currentUserRole, 'edit_booking') && (currentUserRole !== 'sales_rep' || rec.created_by === currentUserId) ? (
                   <div className="md:col-span-2 flex justify-end">
                     <Button onClick={() => updateStatus.mutate({ id: rec.id, status: 'confirmed' }, { onSuccess: () => { toast.success('Booking approved'); setShowDetailsDialog(false); bookingsQuery.refetch() } })}>
                       Approve Booking

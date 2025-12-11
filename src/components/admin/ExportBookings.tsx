@@ -13,7 +13,7 @@ import {
 } from '@/services/exportBookings';
 import type { BookingsFilters } from '@/lib/queries/bookings';
 import { toast } from 'sonner';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { PrintableBookings } from '@/components/admin/PrintableBookings';
 
@@ -21,10 +21,26 @@ interface Props {
   filters: BookingsFilters;
 }
 
+import { supabase } from '@/lib/supabase';
+
 export const ExportBookings: React.FC<Props> = ({ filters }) => {
   const [rows, setRows] = useState<any[]>([]);
   const [suitesMap, setSuitesMap] = useState<Map<string, string>>(new Map());
   const printRef = useRef<HTMLDivElement>(null);
+
+  const [currentUserRole, setCurrentUserRole] = useState<string>('');
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        const am: any = user.app_metadata;
+        const um: any = user.user_metadata;
+        const role = am?.role ?? am?.roles?.[0] ?? um?.role ?? 'user';
+        setCurrentUserRole(role);
+      }
+    });
+  }, []);
+
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `bookings_${new Date().toISOString().slice(0, 10)}`,
@@ -64,6 +80,8 @@ export const ExportBookings: React.FC<Props> = ({ filters }) => {
       toast.error(msg);
     }
   };
+  if (currentUserRole === 'read_only') return null;
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

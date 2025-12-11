@@ -15,7 +15,8 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { canAccess } from '@/lib/permissions';
 import { ScrollArea, ScrollBar } from '../ui/scroll-area';
 import { useSuites } from '@/lib/queries/suites';
 import { useCustomers } from '@/lib/queries/customers';
@@ -70,6 +71,20 @@ const StatCard = ({
 export const Dashboard = () => {
   const navigate = useNavigate();
   const { data: suites } = useSuites();
+
+  const [currentUserRole, setCurrentUserRole] = useState<string>('');
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        const am: any = user.app_metadata;
+        const um: any = user.user_metadata;
+        const role = am?.role ?? am?.roles?.[0] ?? um?.role ?? 'user';
+        setCurrentUserRole(role);
+      }
+    });
+  }, []);
+
   const suitesList = suites || [];
   const suitesMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -207,12 +222,14 @@ export const Dashboard = () => {
           description="Active customers"
           icon={Users}
         />
-        <StatCard
-          title="Total Revenue"
-          value={`GHS ${stats.totalRevenue.toLocaleString()}`}
-          description={`This month: GHS ${stats.monthlyRevenue.toLocaleString()}`}
-          icon={DollarSign}
-        />
+        {canAccess(currentUserRole, 'view_revenue') && (
+          <StatCard
+            title="Total Revenue"
+            value={`GHS ${stats.totalRevenue.toLocaleString()}`}
+            description={`This month: GHS ${stats.monthlyRevenue.toLocaleString()}`}
+            icon={DollarSign}
+          />
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -236,21 +253,23 @@ export const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">
-              Average Booking Value
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              GHS {stats.averageBookingValue}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Per booking this month
-            </p>
-          </CardContent>
-        </Card>
+        {canAccess(currentUserRole, 'view_revenue') && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium">
+                Average Booking Value
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                GHS {stats.averageBookingValue}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Per booking this month
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
