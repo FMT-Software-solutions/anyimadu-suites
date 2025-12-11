@@ -1,8 +1,6 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,19 +9,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { supabase } from '@/lib/supabase';
+import { type User as SupabaseUser } from '@supabase/supabase-js';
 import {
-  LayoutDashboard,
-  Calendar,
-  Building2,
-  Users,
-  UserCog,
-  User,
-  Menu,
-  LogOut,
-  Settings,
   Bell,
+  Building2,
+  Calendar,
+  LayoutDashboard,
   ListChecks,
+  LogOut,
+  Menu,
+  User,
+  UserCog,
+  Users
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -47,9 +49,60 @@ export const AdminLayout = ({
   onTabChange,
 }: AdminLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const getUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    getUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const isActive = (key: string) => {
     return activeTab === key;
+  };
+
+  const getInitials = () => {
+    if (!user) return 'AD';
+    const meta = user.user_metadata;
+    if (meta?.firstName && meta?.lastName) {
+      return `${meta.firstName.charAt(0)}${meta.lastName.charAt(
+        0
+      )}`.toUpperCase();
+    }
+    if (meta?.name) {
+      return meta.name.charAt(0).toUpperCase();
+    }
+    return user.email?.charAt(0).toUpperCase() || 'AD';
+  };
+
+  const getDisplayName = () => {
+    if (!user) return 'Admin User';
+    const meta = user.user_metadata;
+    if (meta?.firstName && meta?.lastName) {
+      return `${meta.firstName} ${meta.lastName}`;
+    }
+    return meta?.name || user.email?.split('@')[0] || 'Admin User';
+  };
+
+  const getAvatarUrl = () => {
+    return (
+      user?.user_metadata?.avatar ||
+      user?.user_metadata?.avatar_url ||
+      '/placeholder-avatar.jpg'
+    );
   };
 
   const SidebarContent = () => (
@@ -93,13 +146,13 @@ export const AdminLayout = ({
       <div className="border-t p-4">
         <div className="flex items-center space-x-3">
           <Avatar className="h-8 w-8">
-            <AvatarImage src="/placeholder-avatar.jpg" />
-            <AvatarFallback>AD</AvatarFallback>
+            <AvatarImage src={getAvatarUrl()} className="object-cover" />
+            <AvatarFallback>{getInitials()}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">Admin User</p>
+            <p className="text-sm font-medium truncate">{getDisplayName()}</p>
             <p className="text-xs text-muted-foreground truncate">
-              admin@anyimadusuites.com
+              {user?.email || 'admin@anyimadusuites.com'}
             </p>
           </div>
         </div>
@@ -164,8 +217,11 @@ export const AdminLayout = ({
                   className="relative h-8 w-8 rounded-full"
                 >
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src="/placeholder-avatar.jpg" />
-                    <AvatarFallback>AD</AvatarFallback>
+                    <AvatarImage
+                      src={getAvatarUrl()}
+                      className="object-cover"
+                    />
+                    <AvatarFallback>{getInitials()}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
@@ -173,10 +229,10 @@ export const AdminLayout = ({
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">
-                      Admin User
+                      {getDisplayName()}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      admin@anyimadusuites.com
+                      {user?.email}
                     </p>
                   </div>
                 </DropdownMenuLabel>
@@ -185,12 +241,13 @@ export const AdminLayout = ({
                   <User className="mr-2 h-4 w-4" />
                   Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    navigate('/admin/login', { replace: true });
+                  }}
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   Log out
                 </DropdownMenuItem>
@@ -200,7 +257,7 @@ export const AdminLayout = ({
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+        <main className="flex-1 overflow-auto p-4 lg:p-6">{children}</main>
       </div>
     </div>
   );

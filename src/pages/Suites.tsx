@@ -1,14 +1,14 @@
 import { SearchSuitesForm } from '@/components/SearchSuitesForm';
-import { useState, useEffect, useMemo } from 'react';
+import { getAmenityIcon } from '@/lib/amenityIcons';
+import { toISODate, validateSearch } from '@/lib/bookingValidation';
+import { useSuites, type SuiteWithRelations } from '@/lib/queries/suites';
+import { useSEO } from '@/lib/seo';
+import { supabase } from '@/lib/supabase';
+import { type Suite } from '@/lib/types';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import SuiteCard from '../components/SuiteCard';
 import { Button } from '../components/ui/button';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useSuites, type SuiteWithRelations } from '@/lib/queries/suites';
-import { type Suite } from '@/lib/types';
-import { getAmenityIcon } from '@/lib/amenityIcons';
-import { supabase } from '@/lib/supabase';
-import { validateSearch, toISODate } from '@/lib/bookingValidation';
-import { useSEO } from '@/lib/seo';
 
 export default function Suites() {
   useSEO({
@@ -197,7 +197,7 @@ export default function Suites() {
             </div>
           )}
           {isError && (
-            <div className="text-center py-12">
+            <div className="text-center py-12 border border-red-200 bg-red-50/70 rounded-lg">
               <p className="text-red-600">Failed to load suites.</p>
             </div>
           )}

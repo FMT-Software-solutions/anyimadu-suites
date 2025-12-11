@@ -3,17 +3,22 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { Label } from '../components/ui/label';
-import { Mail, Phone, MapPin, Clock } from 'lucide-react';
+import { Mail, Phone, MapPin, Clock, Navigation } from 'lucide-react';
 import { useState } from 'react';
 import { CountrySelector } from '../components/CountrySelector';
 import { useSEO } from '@/lib/seo';
+import { Link } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 export default function Contact() {
   useSEO({
     title: 'Contact Anyimadu Suites — We’re here to help',
-    description: 'Get in touch with Anyimadu Suites for reservations, directions, and inquiries. Available 24/7.',
+    description:
+      'Get in touch with Anyimadu Suites for reservations, directions, and inquiries. Available 24/7.',
     keywords: ['contact', 'Anyimadu Suites', 'directions', 'phone', 'email'],
-    image: 'https://res.cloudinary.com/dkolqpqf2/image/upload/v1764083597/Screenshot_2025-11-25_151158_mrhzxy.png',
+    image:
+      'https://res.cloudinary.com/dkolqpqf2/image/upload/v1764083597/Screenshot_2025-11-25_151158_mrhzxy.png',
     type: 'website',
   });
   const [formData, setFormData] = useState({
@@ -24,33 +29,56 @@ export default function Contact() {
     message: '',
   });
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
-      setFormData({ name: '', email: '', phone: '', country: '', message: '' });
-    }, 3000);
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.functions.invoke('send-contact-email', {
+        body: formData,
+      });
+
+      if (error) throw error;
+
+      setSubmitted(true);
+      toast.success('Message sent successfully!');
+      setTimeout(() => {
+        setSubmitted(false);
+        setFormData({
+          name: '',
+          email: '',
+          phone: '',
+          country: '',
+          message: '',
+        });
+      }, 3000);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error('Failed to send message. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const contactInfo = [
     {
       icon: MapPin,
       title: 'Location',
-      content: 'Ghana',
-      subContent: 'West Africa',
+      content: 'Central Region, Ghana',
+      subContent: 'Fanti Nyankomasi, between Cape Coast and Assin Fosu',
     },
     {
       icon: Phone,
       title: 'Phone',
-      content: '+233 XX XXX XXXX',
+      content: '+27725631091',
       subContent: 'Available 24/7',
     },
     {
       icon: Mail,
       title: 'Email',
-      content: 'info@anyimadusuites.com',
+      content: 'anyimadusuites@gmail.com | tonyanyimadu@gmail.com',
       subContent: 'We reply within 24 hours',
     },
     {
@@ -60,6 +88,14 @@ export default function Contact() {
       subContent: 'Reception available anytime',
     },
   ];
+
+  const destination = '5.385268,-1.148798'; // Exact GPS coordinates for Fante Nyankomasi
+  const destinationName = 'Fante Nyankomasi, Central Region, Ghana';
+
+  const handleGetDirections = () => {
+    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
+    window.open(googleMapsUrl, '_blank');
+  };
 
   return (
     <div className="min-h-screen pt-20">
@@ -165,8 +201,9 @@ export default function Contact() {
                       <Button
                         type="submit"
                         className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-6 text-lg"
+                        disabled={loading}
                       >
-                        Send Message
+                        {loading ? 'Sending...' : 'Send Message'}
                       </Button>
                     </form>
                   )}
@@ -210,15 +247,11 @@ export default function Contact() {
                     Experience luxury and comfort at Anyimadu Suites. Book your
                     exclusive suite today.
                   </p>
-                  <Button
-                    className="w-full bg-white text-primary hover:bg-gray-100"
-                    onClick={() => {
-                      const event = new CustomEvent('openBookingModal');
-                      window.dispatchEvent(event);
-                    }}
-                  >
-                    Book Now
-                  </Button>
+                  <Link to="/suites" className="block">
+                    <Button className="w-full bg-white text-primary hover:bg-gray-100">
+                      Book Now
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             </div>
@@ -232,18 +265,45 @@ export default function Contact() {
             <h2 className="text-3xl font-bold text-center mb-8">
               Find Us on the Map
             </h2>
-            <div className="rounded-2xl overflow-hidden shadow-2xl h-96 bg-gray-200 flex items-center justify-center">
-              <div className="text-center">
-                <MapPin className="w-16 h-16 text-primary mx-auto mb-4" />
-                <p className="text-gray-600 text-lg">Map Preview</p>
+            <div className="rounded-2xl overflow-hidden shadow-2xl h-96 bg-gray-200">
+              <div className="relative">
+                {/* Google Maps Embed */}
+                <div className="w-full h-80 bg-gray-200 rounded-t-lg overflow-hidden">
+                  <iframe
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3970.826789!2d-1.148798!3d5.385268!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNcKwMjMnMDcuMCJOIDHCsDA4JzU1LjciVw!5e1!3m2!1sen!2sgh!4v1234567890"
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    title="Anyimadu Suites Location - Fante Nyankomasi"
+                  ></iframe>
+                </div>
+
+                {/* Map Overlay Info */}
+                <div className="absolute -bottom-14 left-2">
+                  <div className="bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+                    <div className="flex items-center text-sm">
+                      <MapPin className="w-4 h-4 text-primary mr-2" />
+                      <span className="font-medium text-gray-900">
+                        {destinationName}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      5°23'07.0"N 1°08'55.7"W
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-5 flex justify-end">
                 <Button
-                  variant="outline"
-                  className="mt-4 border-primary text-primary hover:bg-primary hover:text-white"
-                  onClick={() =>
-                    window.open('https://maps.google.com', '_blank')
-                  }
+                  onClick={handleGetDirections}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
-                  Open in Google Maps
+                  <Navigation className="w-4 h-4 mr-2" />
+                  Get Directions
                 </Button>
               </div>
             </div>

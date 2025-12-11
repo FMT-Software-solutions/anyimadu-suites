@@ -11,97 +11,150 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Calendar,
   Camera,
   Crown,
-  Lock,
   Shield,
   ShieldCheck,
-  User,
+  Loader2,
+  Save,
 } from 'lucide-react';
-import { useState } from 'react';
-
-// Mock current user data
-const mockCurrentUser = {
-  id: 1,
-  firstName: 'Admin',
-  lastName: 'User',
-  email: 'admin@anyimadu-suites.com',
-  phone: '+233 24 000 0001',
-  role: 'super_admin',
-  status: 'active',
-  lastLogin: '2024-01-22T10:30:00Z',
-  createdAt: '2023-01-15T08:00:00Z',
-  permissions: ['all'],
-  bio: 'System administrator with full access to all features and settings.',
-  location: 'Accra, Ghana',
-  timezone: 'GMT',
-  language: 'English',
-  avatar: '',
-};
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { type User } from '@supabase/supabase-js';
+import { toast } from 'sonner';
 
 interface ProfileFormData {
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
-  bio: string;
-  location: string;
-  timezone: string;
-  language: string;
+  about: string;
 }
 
 export const Profile = () => {
-  const [currentUser] = useState(mockCurrentUser);
-  const [isEditing, setIsEditing] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const [profileData, setProfileData] = useState<ProfileFormData>({
-    firstName: currentUser.firstName,
-    lastName: currentUser.lastName,
-    email: currentUser.email,
-    phone: currentUser.phone,
-    bio: currentUser.bio,
-    location: currentUser.location,
-    timezone: currentUser.timezone,
-    language: currentUser.language,
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    about: '',
   });
 
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
+  useEffect(() => {
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      if (user) {
+        const meta = user.user_metadata || {};
+        setProfileData({
+          firstName: meta.firstName || '',
+          lastName: meta.lastName || '',
+          email: user.email || '',
+          phone: meta.phone || '',
+          about: meta.about || meta.bio || '',
+        });
+      }
+      setLoading(false);
+    };
+    init();
+  }, []);
 
-  const handleProfileSave = (e: React.FormEvent) => {
+  const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Here you would typically make an API call to update the profile
-    console.log('Saving profile:', profileData);
-    setIsEditing(false);
-    // Show success message
-  };
+    if (!user) return;
 
-  const handlePasswordChange = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert('New passwords do not match');
-      return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          firstName: profileData.firstName,
+          lastName: profileData.lastName,
+          phone: profileData.phone,
+          about: profileData.about,
+          // We don't update email here as it requires confirmation usually
+        },
+      });
+
+      if (error) throw error;
+      toast.success('Profile updated successfully');
+      
+      // Update local user state to reflect changes
+      const { data: { user: updatedUser } } = await supabase.auth.getUser();
+      setUser(updatedUser);
+    } catch (error) {
+      toast.error('Failed to update profile');
+      console.error(error);
+    } finally {
+      setSaving(false);
     }
-    // Here you would typically make an API call to change the password
-    console.log('Changing password');
-    setPasswordData({
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: '',
-    });
-    // Show success message
   };
 
-  const getRoleBadge = (role: string) => {
-    switch (role) {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setUploading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) throw new Error('No session');
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'user-avatars');
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      
+      const res = await fetch(`${supabaseUrl}/functions/v1/cloudinary-upload`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+      const avatarUrl = data.secure_url;
+
+      // Update user metadata with new avatar URL
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: { avatar: avatarUrl },
+      });
+
+      if (updateError) throw updateError;
+
+      toast.success('Avatar updated successfully');
+      
+      // Refresh user
+      const { data: { user: updatedUser } } = await supabase.auth.getUser();
+      setUser(updatedUser);
+    } catch (error) {
+      toast.error('Failed to upload avatar');
+      console.error(error);
+    } finally {
+      setUploading(false);
+      // Reset input
+      e.target.value = '';
+    }
+  };
+
+  const getRoleBadge = (role?: string) => {
+    // Check app_metadata first as that's where roles usually live in Supabase
+    const userRole = role || user?.app_metadata?.role || user?.user_metadata?.role || 'user';
+    
+    switch (userRole) {
       case 'super_admin':
+      case 'admin':
         return (
           <Badge className="bg-red-500 hover:bg-red-600">
             <Crown className="mr-1 h-3 w-3" />
@@ -123,275 +176,188 @@ export const Profile = () => {
           </Badge>
         );
       default:
-        return <Badge variant="outline">{role}</Badge>;
+        return <Badge variant="outline">{userRole}</Badge>;
     }
   };
 
-  const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  const getInitials = () => {
+    if (profileData.firstName && profileData.lastName) {
+      return `${profileData.firstName.charAt(0)}${profileData.lastName.charAt(0)}`.toUpperCase();
+    }
+    return user?.email?.charAt(0).toUpperCase() || 'U';
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  if (loading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
           <p className="text-muted-foreground">
-            Manage your account settings and preferences.
+            Manage your personal details and account settings.
           </p>
         </div>
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="profile" className="space-y-6">
-          {/* Profile Overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile Information</CardTitle>
-              <CardDescription>
-                Update your personal information and preferences.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Avatar Section */}
-              <div className="flex items-center space-x-4">
-                <Avatar className="h-20 w-20">
-                  <AvatarImage src={currentUser.avatar} />
-                  <AvatarFallback className="text-lg">
-                    {getInitials(currentUser.firstName, currentUser.lastName)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <h3 className="text-lg font-medium">
-                      {currentUser.firstName} {currentUser.lastName}
-                    </h3>
-                    {getRoleBadge(currentUser.role)}
-                  </div>
-                  <Button variant="outline" size="sm">
-                    <Camera className="mr-2 h-4 w-4" />
-                    Change Avatar
-                  </Button>
-                </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Profile Information</CardTitle>
+          <CardDescription>
+            Update your photo and personal details here.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-8">
+          {/* Avatar Section */}
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+            <div className="relative group">
+              <Avatar className="h-24 w-24 border-2 border-muted">
+                <AvatarImage src={user?.user_metadata?.avatar} className="object-cover" />
+                <AvatarFallback className="text-xl">
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onClick={() => document.getElementById('avatar-upload')?.click()}>
+                <Camera className="h-8 w-8 text-white" />
               </div>
-
-              <Separator />
-
-              {/* Profile Form */}
-              <form onSubmit={handleProfileSave} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name</Label>
-                    <Input
-                      id="firstName"
-                      value={profileData.firstName}
-                      onChange={(e) =>
-                        setProfileData({
-                          ...profileData,
-                          firstName: e.target.value,
-                        })
-                      }
-                      disabled={!isEditing}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Last Name</Label>
-                    <Input
-                      id="lastName"
-                      value={profileData.lastName}
-                      onChange={(e) =>
-                        setProfileData({
-                          ...profileData,
-                          lastName: e.target.value,
-                        })
-                      }
-                      disabled={!isEditing}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={profileData.email}
-                    onChange={(e) =>
-                      setProfileData({ ...profileData, email: e.target.value })
-                    }
-                    disabled={!isEditing}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={profileData.phone}
-                    onChange={(e) =>
-                      setProfileData({ ...profileData, phone: e.target.value })
-                    }
-                    disabled={!isEditing}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="bio">Bio</Label>
-                  <Textarea
-                    id="bio"
-                    value={profileData.bio}
-                    onChange={(e) =>
-                      setProfileData({ ...profileData, bio: e.target.value })
-                    }
-                    disabled={!isEditing}
-                    rows={3}
-                  />
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="security" className="space-y-6">
-          {/* Password Change */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Change Password</CardTitle>
-              <CardDescription>
-                Update your password to keep your account secure.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handlePasswordChange} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="currentPassword">Current Password</Label>
-                  <Input
-                    id="currentPassword"
-                    type="password"
-                    value={passwordData.currentPassword}
-                    onChange={(e) =>
-                      setPasswordData({
-                        ...passwordData,
-                        currentPassword: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="newPassword">New Password</Label>
-                  <Input
-                    id="newPassword"
-                    type="password"
-                    value={passwordData.newPassword}
-                    onChange={(e) =>
-                      setPasswordData({
-                        ...passwordData,
-                        newPassword: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    value={passwordData.confirmPassword}
-                    onChange={(e) =>
-                      setPasswordData({
-                        ...passwordData,
-                        confirmPassword: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <Button type="submit">
-                  <Lock className="mr-2 h-4 w-4" />
-                  Update Password
+            </div>
+            
+            <div className="space-y-2 text-center sm:text-left flex-1">
+              <div className="flex flex-col sm:flex-row items-center gap-2">
+                <h3 className="text-xl font-medium">
+                  {profileData.firstName} {profileData.lastName}
+                </h3>
+                {getRoleBadge()}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {user?.email}
+              </p>
+              <div className="flex items-center gap-2 justify-center sm:justify-start">
+                <Button variant="outline" size="sm" onClick={() => document.getElementById('avatar-upload')?.click()} disabled={uploading}>
+                  {uploading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="mr-2 h-4 w-4" />
+                      Change Photo
+                    </>
+                  )}
                 </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                <input
+                  type="file"
+                  id="avatar-upload"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  disabled={uploading}
+                />
+              </div>
+            </div>
+          </div>
 
-        <TabsContent value="activity" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Account Activity</CardTitle>
-              <CardDescription>
-                View your recent account activity and login history.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div className="flex items-center text-sm">
-                    <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">Account Created:</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground ml-6">
-                    {formatDate(currentUser.createdAt)}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center text-sm">
-                    <User className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">Last Login:</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground ml-6">
-                    {formatDate(currentUser.lastLogin)}
-                  </p>
-                </div>
+          <Separator />
+
+          {/* Profile Form */}
+          <form onSubmit={handleProfileSave} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  value={profileData.firstName}
+                  onChange={(e) =>
+                    setProfileData({
+                      ...profileData,
+                      firstName: e.target.value,
+                    })
+                  }
+                  placeholder="Enter your first name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  value={profileData.lastName}
+                  onChange={(e) =>
+                    setProfileData({
+                      ...profileData,
+                      lastName: e.target.value,
+                    })
+                  }
+                  placeholder="Enter your last name"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={profileData.email}
+                  disabled
+                  className="bg-muted"
+                />
+                <p className="text-xs text-muted-foreground">Email cannot be changed directly.</p>
               </div>
 
-              <Separator />
-
-              <div className="space-y-4">
-                <h4 className="font-medium">Recent Activity</h4>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3 text-sm">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span>Logged in from Accra, Ghana</span>
-                    <span className="text-muted-foreground">2 hours ago</span>
-                  </div>
-                  <div className="flex items-center space-x-3 text-sm">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span>Updated profile information</span>
-                    <span className="text-muted-foreground">1 day ago</span>
-                  </div>
-                  <div className="flex items-center space-x-3 text-sm">
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                    <span>Changed password</span>
-                    <span className="text-muted-foreground">3 days ago</span>
-                  </div>
-                  <div className="flex items-center space-x-3 text-sm">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                    <span>Enabled two-factor authentication</span>
-                    <span className="text-muted-foreground">1 week ago</span>
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  value={profileData.phone}
+                  onChange={(e) =>
+                    setProfileData({ ...profileData, phone: e.target.value })
+                  }
+                  placeholder="e.g. +233 24 000 0000"
+                />
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="about">About</Label>
+              <Textarea
+                id="about"
+                value={profileData.about}
+                onChange={(e) =>
+                  setProfileData({ ...profileData, about: e.target.value })
+                }
+                placeholder="Write a short bio about yourself..."
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <Button type="submit" disabled={saving}>
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 };

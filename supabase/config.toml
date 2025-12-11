@@ -1,0 +1,20 @@
+[functions.process-inbound-email]
+verify_jwt = false
+
+[functions.send-otp]
+verify_jwt = false
+
+[functions.verify-otp]
+verify_jwt = false
+
+[functions.update-password]
+verify_jwt = true
+
+[functions.promote-super-admin]
+verify_jwt = true
+
+[functions.create-super-admin-user]
+verify_jwt = true
+
+[functions.create-admin-user]
+verify_jwt = true
