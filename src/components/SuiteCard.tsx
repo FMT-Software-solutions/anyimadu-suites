@@ -20,12 +20,14 @@ interface SuiteCardProps {
   checkIn?: Date | null;
   checkOut?: Date | null;
   guests?: number;
+  usdRate?: number;
 }
 
-export default function SuiteCard({ suite, checkIn, checkOut, guests }: SuiteCardProps) {
+export default function SuiteCard({ suite, checkIn, checkOut, guests, usdRate }: SuiteCardProps) {
   const [showDetails, setShowDetails] = useState(false);
   const navigate = useNavigate();
   const canBook = !!(checkIn && checkOut && typeof guests === 'number' && guests > 0);
+  const usdPrice = typeof usdRate === 'number' ? suite.price * usdRate : null;
 
   const handleBookNow = () => {
     if (!canBook) return;
@@ -47,7 +49,12 @@ export default function SuiteCard({ suite, checkIn, checkOut, guests }: SuiteCar
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
           />
           <div className="absolute top-4 right-4 bg-primary text-white px-4 py-2 rounded-full font-semibold">
-            GHS {suite.price}
+            <div className="flex items-baseline gap-2">
+              <span>GHS {suite.price}</span>
+              {usdPrice !== null ? (
+                <span className="text-xs opacity-90">≈ ${usdPrice.toFixed(2)}</span>
+              ) : null}
+            </div>
           </div>
         </div>
         <CardHeader>
@@ -102,6 +109,9 @@ export default function SuiteCard({ suite, checkIn, checkOut, guests }: SuiteCar
                 <p className="text-sm text-gray-600">Price per night</p>
                 <p className="text-2xl md:text-3xl font-extrabold text-primary">
                   GHS {suite.price}
+                  {usdPrice !== null ? (
+                    <span className="ml-2 text-sm text-gray-600">≈ ${usdPrice.toFixed(2)}</span>
+                  ) : null}
                 </p>
               </div>
               <Button

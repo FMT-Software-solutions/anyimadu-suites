@@ -17,6 +17,7 @@ export type CreateBookingPayload = {
   billing_state?: string | null
   billing_zip?: string | null
   billing_country?: string | null
+  payment_reference?: string
 }
 
 export const useCreateBooking = () => {
@@ -42,6 +43,7 @@ export const useCreateBooking = () => {
         billing_state: payload.billing_state ?? null,
         billing_zip: payload.billing_zip ?? null,
         billing_country: payload.billing_country ?? null,
+        payment_reference: payload.payment_reference ?? null,
         created_by: user?.id ?? null
       })
       if (error) throw error

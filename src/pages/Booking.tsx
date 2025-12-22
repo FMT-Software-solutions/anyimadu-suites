@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { ArrowLeft, Lock, CreditCard } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { type Suite } from '@/lib/types';
 import { useCreateBooking } from '@/lib/queries/bookings';
 import { validateSearch, guestInfoErrors, billingAddressErrors } from '@/lib/bookingValidation';
 import { useSuites, type SuiteWithRelations } from '@/lib/queries/suites';
-import { useMemo } from 'react';
 import { getAmenityIcon } from '@/lib/amenityIcons';
 import { GuestInfoSection } from '@/components/booking/GuestInfoSection';
 import { StayDetailsSection } from '@/components/booking/StayDetailsSection';
 import { BillingAddressSection } from '@/components/booking/BillingAddressSection';
 import { BookingSummary } from '@/components/booking/BookingSummary';
 import { useSEO } from '@/lib/seo';
+import { PaystackPayment } from '@/components/booking/PaystackPayment';
+import { supabase } from '@/lib/supabase';
+import { useUsdRate } from '@/lib/hooks';
 
 interface BookingFormData {
   fullName: string;
@@ -29,14 +29,7 @@ interface BookingFormData {
   billingState: string;
   billingZip: string;
   billingCountry: string;
-  // Payment
-  cardName: string;
-  cardNumber: string;
-  expiryDate: string;
-  cvv: string;
 }
-
-
 
 export default function Booking() {
   const { suiteId } = useParams<{ suiteId: string }>();
@@ -66,6 +59,7 @@ export default function Booking() {
     return clientSuites.find((s) => String(s.id) === suiteId) || null;
   }, [suiteId, clientSuites]);
   const suite: Suite | null = suiteFromState || suiteFromId || null;
+  
   useSEO({
     title: suite ? `Book ${suite.name} | Anyimadu Suites` : 'Complete your booking | Anyimadu Suites',
     description: 'Secure your reservation at Anyimadu Suites. Enter guest details and confirm your stay.',
@@ -86,10 +80,6 @@ export default function Booking() {
     billingState: '',
     billingZip: '',
     billingCountry: '',
-    cardName: '',
-    cardNumber: '',
-    expiryDate: '',
-    cvv: ''
   });
 
   const [showSuccess, setShowSuccess] = useState(false);
@@ -97,6 +87,7 @@ export default function Booking() {
   const createBooking = useCreateBooking();
   const [guestErrors, setGuestErrors] = useState<{ fullName?: string; email?: string; phone?: string }>({});
   const [billingErrors, setBillingErrors] = useState<{ billingAddress?: string; billingCity?: string; billingState?: string; billingCountry?: string }>({});
+  const { data: usdRate } = useUsdRate();
 
   useEffect(() => {
     const ciParam = searchParams.get('checkIn');
@@ -125,21 +116,19 @@ export default function Booking() {
     return 1;
   };
 
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!suite) return;
+  const validateForm = () => {
+    if (!suite) return false;
     const guests = parseInt(formData.guests, 10) || 1;
     const err = validateSearch(formData.checkIn || null, formData.checkOut || null, guests);
     if (err) {
       setError(err);
-      return;
+      return false;
     }
     const gErrs = guestInfoErrors({ fullName: formData.fullName, email: formData.email, phone: formData.phone });
     if (gErrs.fullName || gErrs.email || gErrs.phone) {
       setGuestErrors(gErrs);
       setError(gErrs.fullName || gErrs.email || gErrs.phone || 'Please correct guest information.');
-      return;
+      return false;
     }
     const bErrs = billingAddressErrors({
       billingAddress: formData.billingAddress,
@@ -150,32 +139,60 @@ export default function Booking() {
     if (bErrs.billingAddress || bErrs.billingCity || bErrs.billingState || bErrs.billingCountry) {
       setBillingErrors(bErrs);
       setError(bErrs.billingAddress || bErrs.billingCity || bErrs.billingState || bErrs.billingCountry || 'Please correct billing address.');
-      return;
+      return false;
     }
     setGuestErrors({});
     setBillingErrors({});
     setError(null);
+    return true;
+  };
+
+  const handlePaymentSuccess = async (reference: any) => {
+    if (!suite) return;
     const nights = calculateNights();
     const subtotal = suite.price * nights;
-    await createBooking.mutateAsync({
-      suite_id: suite.id,
-      customer_name: formData.fullName,
-      customer_email: formData.email,
-      customer_phone: formData.phone,
-      check_in: formData.checkIn!,
-      check_out: formData.checkOut!,
-      guest_count: guests,
-      total_amount: Number(subtotal.toFixed(2)),
-      billing_address: formData.billingAddress,
-      billing_city: formData.billingCity,
-      billing_state: formData.billingState,
-      billing_zip: formData.billingZip,
-      billing_country: formData.billingCountry,
-    });
-    setShowSuccess(true);
-    setTimeout(() => {
-      navigate('/');
-    }, 3000);
+    const guests = parseInt(formData.guests, 10) || 1;
+
+    try {
+      await createBooking.mutateAsync({
+        suite_id: suite.id,
+        customer_name: formData.fullName,
+        customer_email: formData.email,
+        customer_phone: formData.phone,
+        check_in: formData.checkIn!,
+        check_out: formData.checkOut!,
+        guest_count: guests,
+        total_amount: Number(subtotal.toFixed(2)),
+        billing_address: formData.billingAddress,
+        billing_city: formData.billingCity,
+        billing_state: formData.billingState,
+        billing_zip: formData.billingZip,
+        billing_country: formData.billingCountry,
+        payment_reference: reference,
+      });
+      try {
+        await supabase.functions.invoke('send-booking-confirmation', {
+          body: {
+            customer_name: formData.fullName,
+            customer_email: formData.email,
+            suite_name: suite.name,
+            check_in: (formData.checkIn ?? new Date()).toISOString(),
+            check_out: (formData.checkOut ?? new Date()).toISOString(),
+            total_amount: Number(subtotal.toFixed(2)),
+            payment_reference: reference?.reference ?? String(reference),
+          },
+        });
+      } catch (emailErr) {
+        console.error(emailErr);
+      }
+      setShowSuccess(true);
+      setTimeout(() => {
+        navigate('/');
+      }, 3000);
+    } catch (err) {
+      console.error(err);
+      setError('Payment successful but booking creation failed. Please contact support.');
+    }
   };
 
   if (!suite) {
@@ -200,6 +217,9 @@ export default function Booking() {
       </div>
     );
   }
+
+  const nights = calculateNights();
+  const subtotal = suite.price * nights;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -240,7 +260,7 @@ export default function Booking() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Booking Form */}
           <div className="lg:col-span-2">
-            <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="space-y-8">
               <GuestInfoSection
                 values={{ fullName: formData.fullName, email: formData.email, phone: formData.phone }}
                 onChange={(next) => setFormData((prev) => ({ ...prev, ...next }))}
@@ -269,78 +289,24 @@ export default function Booking() {
                 errors={billingErrors}
               />
 
-              {/* Payment Details */}
-              <div className="bg-white p-6 rounded-lg shadow-sm">
-                <div className="flex items-center mb-4">
-                  <Lock className="w-5 h-5 text-green-600 mr-2" />
-                  <h2 className="text-xl font-semibold">Secure Payment Details</h2>
-                </div>
-                <p className="text-sm text-gray-600 mb-4">This is a secure 256-bit SSL encrypted payment.</p>
-                
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="cardName">Name on Card *</Label>
-                    <Input
-                      id="cardName"
-                      required
-                      value={formData.cardName}
-                      onChange={(e) => setFormData({ ...formData, cardName: e.target.value })}
-                      placeholder="John Doe"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="cardNumber">Card Number *</Label>
-                    <div className="relative">
-                      <Input
-                        id="cardNumber"
-                        required
-                        value={formData.cardNumber}
-                        onChange={(e) => setFormData({ ...formData, cardNumber: e.target.value })}
-                        placeholder="1234 5678 9012 3456"
-                        maxLength={19}
-                      />
-                      <CreditCard className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="expiryDate">Expiry Date *</Label>
-                      <Input
-                        id="expiryDate"
-                        required
-                        value={formData.expiryDate}
-                        onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
-                        placeholder="MM/YY"
-                        maxLength={5}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cvv">CVV *</Label>
-                      <Input
-                        id="cvv"
-                        required
-                        value={formData.cvv}
-                        onChange={(e) => setFormData({ ...formData, cvv: e.target.value })}
-                        placeholder="123"
-                        maxLength={4}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <PaystackPayment 
+                amount={subtotal}
+                email={formData.email}
+                onSuccess={handlePaymentSuccess}
+                onClose={() => console.log('Payment closed')}
+                validate={validateForm}
+                usdRate={usdRate}
+                metadata={{
+                  firstName: formData.fullName.split(' ')[0] || '',
+                  lastName: formData.fullName.split(' ')[1] || '',
+                  phone: formData.phone || '',
+                }}
+              />
 
-              <Button
-                type="submit"
-                className="w-full bg-primary hover:bg-primary/90 text-white py-6 text-lg"
-              >
-                Complete Reservation
-              </Button>
               {error ? (
                 <div className="text-red-600 text-sm mt-2">{error}</div>
               ) : null}
-            </form>
+            </div>
           </div>
 
           <div className="lg:col-span-1">
@@ -349,6 +315,7 @@ export default function Booking() {
               checkIn={formData.checkIn}
               checkOut={formData.checkOut}
               guests={formData.guests}
+              usdRate={usdRate}
             />
           </div>
         </div>

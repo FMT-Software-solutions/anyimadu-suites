@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import SuiteCard from '../components/SuiteCard';
 import { Button } from '../components/ui/button';
+import { useUsdRate } from '@/lib/hooks';
 
 export default function Suites() {
   useSEO({
@@ -52,6 +53,8 @@ export default function Suites() {
   });
 
   const clientSuites = useMemo(() => (suites ?? []).map(mapSuite), [suites]);
+
+  const { data: usdRate } = useUsdRate();
 
   useEffect(() => {
     const checkInParam = searchParams.get('checkIn');
@@ -209,6 +212,7 @@ export default function Suites() {
                 checkIn={hasSearched ? lastCheckIn : initialCheckIn}
                 checkOut={hasSearched ? lastCheckOut : initialCheckOut}
                 guests={hasSearched ? lastGuests : initialGuests}
+                usdRate={usdRate}
               />
             ))}
           </div>

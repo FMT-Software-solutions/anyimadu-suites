@@ -20,7 +20,7 @@ serve(async (req) => {
     const { data, error } = await resend.emails.send({
       from: "Anyimadu Suites <contact@anyimadusuites.com>",
     //   to: ["anyimadusuites@gmail.com", "tonyanyimadu@gmail.com"],
-      to: ["anyimadudev@gmail.com"],
+      to: ["anyimadudev@gmail.com", "tonyanyimadu@gmail.com"],
       subject: `New Contact Form Submission from ${name}`,
       html: `
         <h2>New Contact Form Submission</h2>

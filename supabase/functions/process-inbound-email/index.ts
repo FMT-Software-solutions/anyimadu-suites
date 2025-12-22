@@ -83,7 +83,7 @@ serve(async (req: any) => {
     // Forward the email
     const { data, error } = await resend.emails.send({
       from: `Anyimadu Suites <${fromAddress}>`,
-      to: ["anyimadudev@gmail.com"], 
+      to: ["anyimadudev@gmail.com", "tonyanyimadu@gmail.com"], 
       subject: initialSubject, 
       html: htmlContent,
       text: textContent,

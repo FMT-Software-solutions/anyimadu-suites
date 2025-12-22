@@ -6,7 +6,8 @@ export const BookingSummary: React.FC<{
   checkIn?: Date
   checkOut?: Date
   guests: string
-}> = ({ suite, checkIn, checkOut, guests }) => {
+  usdRate?: number
+}> = ({ suite, checkIn, checkOut, guests, usdRate }) => {
   const nights = (() => {
     if (checkIn && checkOut) {
       const diff = Math.abs(checkOut.getTime() - checkIn.getTime())
@@ -15,6 +16,8 @@ export const BookingSummary: React.FC<{
     return 1
   })()
   const subtotal = suite.price * nights
+  const usdSubtotal = typeof usdRate === 'number' ? subtotal * usdRate : null
+  const usdPerNight = typeof usdRate === 'number' ? suite.price * usdRate : null
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm sticky top-4">
       <h2 className="text-xl font-semibold mb-4">Booking Summary</h2>
@@ -47,17 +50,26 @@ export const BookingSummary: React.FC<{
         <div className="border-t pt-4 space-y-2">
           <div className="flex justify-between">
             <span>GHS {suite.price} × {nights} nights</span>
-            <span>GHS {(suite.price * nights).toFixed(2)}</span>
+            <div className="text-right">
+              <div>GHS {(suite.price * nights).toFixed(2)}</div>
+              {usdPerNight !== null ? (
+                <div className="text-xs text-gray-600">≈ ${usdPerNight.toFixed(2)} × {nights}</div>
+              ) : null}
+            </div>
           </div>
         </div>
         <div className="border-t pt-4">
           <div className="flex justify-between text-lg font-semibold">
             <span>Total</span>
-            <span>GHS {subtotal.toFixed(2)}</span>
+            <div className="text-right">
+              <div>GHS {subtotal.toFixed(2)}</div>
+              {usdSubtotal !== null ? (
+                <div className="text-sm font-normal text-gray-600">≈ ${usdSubtotal.toFixed(2)}</div>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
     </div>
   )
 }
-
